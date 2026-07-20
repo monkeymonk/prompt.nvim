@@ -1,0 +1,436 @@
+prompt.nvim                                                    *prompt.nvim*
+
+Write prompts for terminal AI coding tools in Neovim, using each tool's
+native syntax.
+
+==============================================================================
+CONTENTS                                                     *prompt-contents*
+
+    1. Introduction ........................ |prompt-intro|
+    2. Setup ............................... |prompt-setup|
+    3. Configuration ........................ |prompt-config|
+    4. Commands ............................. |prompt-commands|
+    5. Completion ........................... |prompt-completion|
+    6. Targets .............................. |prompt-targets|
+    7. Bridge ................................ |prompt-bridge|
+    8. Launcher .............................. |prompt-launcher|
+    9. Statusline ............................ |prompt-statusline|
+   10. Highlight ............................. |prompt-highlight|
+   11. API .................................... |prompt-api|
+   12. Health ................................. |prompt-health|
+
+==============================================================================
+1. Introduction                                                *prompt-intro*
+
+prompt.nvim opens the current prompt from a terminal AI coding tool (Claude
+Code, Codex CLI, Gemini CLI, OpenCode, Pi) in a Neovim Markdown buffer,
+acting as the tool's external editor ($VISUAL/$EDITOR). It adds:
+
+- Trigger-based completion for files, directories, commands, skills and
+  agents, using each target's own reference syntax (`@`, `/`, `!`).
+- A registry so new AI-tool targets can be added or overridden.
+- Reference highlighting.
+- A `prompt-nvim` shell launcher and shell-integration snippets.
+
+This is not an AI chat interface, agent runner, terminal emulator, or MCP
+client, and it does not invent an intermediate prompt syntax — you type
+what the underlying tool expects.
+
+==============================================================================
+2. Setup                                                        *prompt-setup*
+
+>lua
+    require("prompt").setup({})
+<
+
+Call `setup()` once, typically from your plugin manager's `config` or
+`opts` handling. `setup()`:
+
+- Merges your options over the defaults (see |prompt-config|).
+- Registers the five builtin targets, sources and connectors.
+- Applies any `config.targets` overrides.
+- Creates the `:Prompt*` user commands (see |prompt-commands|).
+- Wires the bridge `VimEnter` autocommand and the cache-invalidation
+  autocommand.
+- Applies the highlight groups (see |prompt-highlight|).
+
+==============================================================================
+3. Configuration                                               *prompt-config*
+
+Defaults (pass a partial table to |prompt-setup| to override):
+>lua
+    require("prompt").setup({
+      default_target = nil,
+
+      bridge = {
+        enabled = true,
+        cancel_strategy = "restore",
+        close_on_return = true,
+      },
+
+      buffer = {
+        filetype = "markdown",
+        wrap = true,
+        linebreak = true,
+        breakindent = true,
+        spell = false,
+        swapfile = false,
+      },
+
+      keymaps = {
+        return_prompt = "<C-CR>",
+        cancel_prompt = nil,
+        complete = "<C-x><C-a>",
+      },
+
+      completion = {
+        min_query_length = 0,
+        max_results = 100,
+      },
+
+      paths = {
+        root_markers = { ".git", "CLAUDE.md", "AGENTS.md", "GEMINI.md" },
+        include_hidden = false,
+        respect_gitignore = true,
+        max_results = 200,
+        max_depth = nil,
+        directory_trailing_slash = true,
+        ignore = {
+          ".git", "node_modules", "vendor", "dist", "build",
+          "target", ".next", ".cache",
+        },
+      },
+
+      cache = { enabled = true, ttl_ms = 30000 },
+
+      highlight = { enabled = true },
+
+      log = { level = "warn" },
+
+      targets = {},
+    })
+<
+
+`targets` holds per-target override tables, merged (via
+`vim.tbl_deep_extend("force", ...)`) into the matching builtin target
+definition when its name already exists in the registry.
+
+==============================================================================
+4. Commands                                                  *prompt-commands*
+
+                                                                  *:PromptNew*
+:PromptNew [target]     Open a new scratch buffer and attach it to
+                         [target], or the resolved target when omitted
+                         (see |prompt-targets| for resolution order).
+
+                                                               *:PromptAttach*
+:PromptAttach [target]   Attach the current buffer to [target], or the
+                          resolved target when omitted.
+
+                                                               *:PromptDetach*
+:PromptDetach             Detach the current buffer.
+
+                                                               *:PromptTarget*
+:PromptTarget [target]    With no argument, show the buffer's current
+                           target. With an argument, set `b:prompt_target`
+                           to it.
+
+                                                               *:PromptReturn*
+:PromptReturn             Save the buffer and return to the calling AI
+                           tool (see |prompt-bridge|).
+
+                                                               *:PromptCancel*
+:PromptCancel             Restore the buffer's original captured content,
+                           then perform the same return behavior as
+                           |:PromptReturn|.
+
+                                                                 *:PromptInfo*
+:PromptInfo               Show the buffer's target, attached state,
+                           bridge state, original path, and whether
+                           `PROMPT_NVIM_BRIDGE` is active.
+
+                                                               *:PromptHealth*
+:PromptHealth             Run `:checkhealth prompt` (see |prompt-health|).
+
+                                                             *:PromptComplete*
+:PromptComplete           Trigger native completion at the cursor via
+                           `vim.ui.select` (see |prompt-completion|).
+
+                                                             *:PromptRefresh*
+:PromptRefresh            Clear the completion cache and the project-root
+                           cache.
+
+==============================================================================
+5. Completion                                              *prompt-completion*
+
+Each target defines its own trigger characters (the builtins use `@`, `/`
+and `!`) mapped to one or more sources (see |prompt-targets|). Typing a
+trigger character in an allowed position starts a query built from the
+non-whitespace text that follows it, up to the cursor.
+
+By default a trigger is only recognized when the character before it is
+absent (start of line), whitespace, or one of `( [ { : ; ,`. A trigger
+preceded by a backslash (`\@`, `\/`) is treated as escaped and ignored.
+Triggers marked "line-start only" additionally require everything before
+the trigger on the line to be blank.
+
+Three completion integrations are provided:
+
+- `lua/prompt/integrations/blink.lua` — a source for blink.cmp. Register it as
+  a provider with `module = "prompt.integrations.blink"`.
+- `lua/prompt/integrations/cmp.lua` — a source for nvim-cmp. Register with
+  `require("cmp").register_source("prompt", require("prompt.integrations.cmp").new())`
+  and add `{ name = "prompt" }` to your cmp sources.
+- `lua/prompt/integrations/native.lua` — native completion via
+  `vim.fn.complete()` / `vim.ui.select()`, driven by |:PromptComplete| or
+  the `keymaps.complete` mapping (`<C-x><C-a>` by default). No framework needed.
+
+All integrations report themselves inactive outside attached prompt buffers.
+
+                                                       *prompt-@-navigation*
+`@` file/directory completion supports incremental path navigation:
+
+- A bare term with no `/` and not starting with `~` (e.g. `@auth`)
+  triggers a recursive fuzzy scan of the project (backend preference:
+  `fd`, then `rg`, then `git ls-files`, then a manual directory walk
+  capped by `paths.max_depth` / `paths.max_results`).
+- A query containing `/`, or starting with `~` (e.g. `@src/`, `@../`,
+  `@/abs/path/`, `@~/`), switches to segment/directory-navigation mode:
+  only the immediate children of the resolved directory are listed. This
+  is what makes incremental directory navigation work.
+
+                                                       *prompt-shell-mode*
+Claude Code's shell mode (`!` at the start of a line, e.g. `! npm test`)
+gets word-aware completion via the `shell` source:
+
+- The first word after `!` completes executables found on `$PATH`.
+- Subsequent argument words complete file and directory paths, relative to
+  the directory the tool was launched from (cwd), with the same
+  segment-navigation behaviour as `@` (`! cat src/`, `! cat ../`).
+
+Unlike other triggers, `!` completes the current whitespace-delimited word
+under the cursor rather than the whole line (`word_query`).
+
+==============================================================================
+6. Targets                                                    *prompt-targets*
+
+A target is resolved for a buffer in this order: `b:prompt_target`, then
+the `PROMPT_NVIM_TARGET` environment variable, then `config.default_target`
+— the first one that names a registered target wins.
+
+Builtin targets and their triggers:
+
+claude ~
+    Display name: "Claude Code".
+    `@` (any position) -> files, directories.
+    `/` (line-start only) -> claude_commands, claude_skills.
+    `!` (line-start only) -> shell (see |prompt-shell-mode|).
+    Discovers `<root>/.claude/{commands,skills}` and
+    `~/.claude/{commands,skills}`.
+
+codex ~
+    Display name: "Codex CLI".
+    `@` (any position) -> files, directories.
+    `/` (line-start only) -> codex_commands, codex_skills.
+    `!` (line-start only) -> shell (see |prompt-shell-mode|).
+    Codex CLI shares Claude Code's composer bindings (`@`, `/`, `!`).
+    Discovers `~/.codex/{skills,prompts}` and
+    `<root>/.codex/{skills,prompts}` (paths are version-tentative; consult
+    the Codex CLI's own docs for its current config-directory layout).
+
+gemini ~
+    Display name: "Gemini CLI".
+    `/` (line-start only) -> gemini_commands (TOML files), gemini_skills,
+    gemini_agents.
+    Discovers `~/.gemini/{commands,skills,agents}` and
+    `<root>/.gemini/{commands,skills,agents}`.
+
+opencode ~
+    Display name: "OpenCode".
+    `@` (any position) -> files, directories, opencode_agents.
+    `/` (line-start only) -> opencode_commands.
+    Discovers `$OPENCODE_CONFIG_DIR` (if set), else
+    `~/.config/opencode/{command,agent,skills}`, and
+    `<root>/.opencode/{command,agent,skills}`.
+
+pi ~
+    Display name: "Pi".
+    `/` (any position, not line-start only) -> pi_commands, pi_skills,
+    pi_prompts.
+    `@` (any position) -> files, directories.
+    Discovers `~/.config/pi` or `~/.pi`, and `<root>/.pi`.
+
+==============================================================================
+7. Bridge                                                      *prompt-bridge*
+
+prompt-nvim (the launcher, see |prompt-launcher|) is set as the AI tool's
+`$VISUAL`/`$EDITOR`, so the tool opens its prompt file in Neovim instead of
+your default editor.
+
+Environment variables used by the bridge:
+
+`PROMPT_NVIM_TARGET`       The target name to attach the buffer to.
+`PROMPT_NVIM_BRIDGE`       Bridge mode is active when this equals "1"
+                           (the default set by the launcher).
+`PROMPT_NVIM_EXECUTABLE`   The `nvim` command the launcher invokes.
+`PROMPT_NVIM_SERVER`       Set when the launcher attached to an existing
+                           Neovim server via `--remote-wait`.
+
+In bridge mode the project root is detected from Neovim's own working
+directory (the directory the AI tool was launched from), not from the
+location of the temporary prompt file — the AI tool typically stores that
+file elsewhere (e.g. under `~/.claude/projects/...`), so walking up from it
+would find the wrong root.
+
+|:PromptReturn| (and the `keymaps.return_prompt` mapping, `<C-CR>` by
+default) writes the buffer, then — if `bridge.close_on_return` is true —
+quits (`:quitall`), or `:bdelete` when `PROMPT_NVIM_SERVER` is set.
+
+|:PromptCancel| (and `keymaps.cancel_prompt`, unset by default) restores
+the buffer's originally captured content, then performs the same
+return/quit behavior. The restore behavior is controlled by
+`bridge.cancel_strategy`:
+
+`"restore"`      Restore the original content, then return (default).
+`"delete"`       Clear the buffer, then return.
+`"error-exit"`   `:cquit` instead of returning normally.
+
+External-editor trigger keys, per tool: Codex CLI and Pi use Ctrl-G;
+OpenCode uses `/editor` or Ctrl-X E; for Claude Code and Gemini CLI,
+consult that tool's own current documentation for its external-editor key,
+since these can change between tool versions.
+
+==============================================================================
+8. Launcher                                                  *prompt-launcher*
+
+`bin/prompt-nvim` is a POSIX shell script used as `$VISUAL`/`$EDITOR`:
+>
+    prompt-nvim [options] [--] <file> [args...]
+
+    --target <name>         Select AI-tool target
+    --target=<name>         Select AI-tool target
+    --nvim <command>        Neovim executable to use (default: nvim)
+    --server <address>      Open through an existing Neovim server
+                             (--remote-wait)
+    --no-bridge             Disable bridge behavior
+    --print-shell <shell>   Print shell integration (bash|zsh|fish|nu|
+                             nushell)
+    --check                 Validate the installation
+    --help, -h              Show this help
+    --version               Show version
+<
+`--print-shell` prints one of the snippets in `shell/` (`bash.sh`,
+`zsh.sh`, `fish.fish`, `nushell.nu`); each defines wrapper functions that
+launch the AI tools with `prompt-nvim` set as their external editor.
+
+The wrapper functions are a convenience. The minimal way to use prompt.nvim
+with any tool is to set the environment variables inline for one run: >
+
+    PROMPT_NVIM_TARGET=codex VISUAL=prompt-nvim EDITOR=prompt-nvim codex
+<
+`PROMPT_NVIM_TARGET` selects the target; `VISUAL`/`EDITOR` point the tool at
+the launcher. This needs no shell configuration.
+
+==============================================================================
+9. Statusline                                              *prompt-statusline*
+
+`require("prompt.integrations.statusline")` exposes two helpers:
+
+`target(bufnr?)`   Returns `"Prompt: <display name>"` for the buffer's
+                    resolved target, or `""` if no target resolves.
+
+`status(bufnr?)`   Returns `""` if the buffer is not attached, otherwise
+                    `"Prompt · <display name>"`, with a `" · bridge"`
+                    suffix appended when the buffer is a bridge buffer.
+
+==============================================================================
+10. Highlight                                               *prompt-highlight*
+
+Controlled by `config.highlight.enabled` (default `true`). All groups are
+linked with `default = true`, so your colorscheme can override them:
+
+`PromptReferenceFile`        -> Underlined
+`PromptReferenceDirectory`   -> Directory
+`PromptReferenceSkill`       -> Special
+`PromptReferenceCommand`     -> Function
+`PromptReferenceAgent`       -> Identifier
+`PromptTarget`               -> Title
+`PromptDeprecated`           -> Comment
+
+==============================================================================
+11. API                                                           *prompt-api*
+
+`require("prompt")` exposes:
+
+`setup(opts)`                     Merge `opts` over the defaults, register
+                                   builtins, create commands, wire the
+                                   bridge and cache autocommands, and apply
+                                   highlight groups. See |prompt-setup|.
+
+`register_target(name, def, opts)`
+                                   Register a target. `name` must match
+                                   `^[a-z0-9_-]+$`. Pass `{ override =
+                                   true }` in `opts` to replace an existing
+                                   target.
+
+`unregister_target(name)`         Remove a registered target.
+
+`get_target(name)`                Return a target definition, or `nil`.
+
+`list_targets()`                  Return all registered target
+                                   definitions, sorted by name.
+
+`register_source(name, source)`   Register a completion source. A source
+                                   is a table with `complete(ctx,
+                                   callback)` and an optional
+                                   `enabled(ctx)`.
+
+`register_connector(name, connector)`
+                                   Register a discovery connector. A
+                                   connector is a table with `discover(kind,
+                                   ctx, callback)`, and optional
+                                   `available()` and `invalidate(root)`.
+
+`attach(bufnr?, target?)`         Attach a buffer: wires the bridge and
+                                   highlighting as applicable. Returns the
+                                   resolved target name.
+
+`detach(bufnr?)`                  Detach a buffer.
+
+Example: registering a custom target with its own trigger and a custom
+source:
+>lua
+    require("prompt").register_source("myai_snippets", {
+      complete = function(_, callback)
+        callback({
+          { label = "todo", insert_text = "todo", kind = "command" },
+          { label = "review", insert_text = "review", kind = "command" },
+        })
+      end,
+    })
+
+    require("prompt").register_target("myai", {
+      display_name = "MyAI",
+      triggers = {
+        ["@"] = { sources = { "files", "directories" } },
+        ["/"] = { sources = { "myai_snippets" }, line_start_only = true },
+      },
+    })
+<
+
+==============================================================================
+12. Health                                                     *prompt-health*
+
+Run via `:checkhealth prompt` or |:PromptHealth|. Checks performed:
+
+- Neovim >= 0.10.
+- `prompt-nvim` executable on `$PATH` (informational: completion still
+  works from config-directory scanning without it).
+- Presence of the markdown Treesitter parser.
+- Lists all registered targets.
+- Lists connector executables found on `$PATH` (informational; completion
+  still works from config-directory scanning even without the CLI
+  installed).
+- Flags `PROMPT_NVIM_TARGET` being set outside of bridge mode.
+
+vim:tw=78:ts=8:ft=help:norl:

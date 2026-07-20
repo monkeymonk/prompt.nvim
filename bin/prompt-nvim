@@ -1,0 +1,147 @@
+#!/bin/sh
+# prompt-nvim: open the current AI-tool prompt in Neovim.
+# Used as the external editor ($VISUAL/$EDITOR) by terminal AI coding tools.
+
+set -eu
+
+VERSION="0.1.0"
+
+target="${PROMPT_NVIM_TARGET:-}"
+bridge="${PROMPT_NVIM_BRIDGE:-1}"
+nvim_cmd="${PROMPT_NVIM_EXECUTABLE:-nvim}"
+server="${PROMPT_NVIM_SERVER:-}"
+
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+usage() {
+    cat <<'EOF'
+prompt-nvim: Open the current AI-tool prompt in Neovim.
+
+Usage: prompt-nvim [options] [--] <file> [args...]
+
+Options:
+  --target <name>        Select AI-tool target
+  --target=<name>        Select AI-tool target
+  --nvim <command>       Neovim executable to use (default: nvim)
+  --server <address>     Open through an existing Neovim server (--remote-wait)
+  --no-bridge            Disable bridge behavior
+  --print-shell <shell>  Print shell integration (bash|zsh|fish|nu|nushell)
+  --check                Validate the installation
+  --help, -h             Show this help
+  --version              Show version
+EOF
+}
+
+print_shell() {
+    _shell="$1"
+    case "$_shell" in
+        zsh) _file="zsh.sh" ;;
+        bash) _file="bash.sh" ;;
+        fish) _file="fish.fish" ;;
+        nu | nushell) _file="nushell.nu" ;;
+        *)
+            printf '%s\n' "prompt-nvim: unknown shell: $_shell" >&2
+            exit 2
+            ;;
+    esac
+    _path="$script_dir/../shell/$_file"
+    if [ ! -f "$_path" ]; then
+        printf '%s\n' "prompt-nvim: shell integration file not found: $_path" >&2
+        exit 1
+    fi
+    cat "$_path"
+}
+
+check() {
+    _resolved=$(command -v "$nvim_cmd" 2>/dev/null || true)
+    if [ -n "$_resolved" ]; then
+        printf '%s\n' "prompt-nvim: nvim found: $_resolved"
+        printf '%s\n' "prompt-nvim: OK"
+        return 0
+    fi
+    printf '%s\n' "prompt-nvim: nvim not found: $nvim_cmd" >&2
+    return 1
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --target)
+            [ "$#" -ge 2 ] || {
+                printf '%s\n' "prompt-nvim: --target requires a value" >&2
+                exit 2
+            }
+            target="$2"
+            shift 2
+            ;;
+        --target=*)
+            target="${1#--target=}"
+            shift
+            ;;
+        --nvim)
+            [ "$#" -ge 2 ] || {
+                printf '%s\n' "prompt-nvim: --nvim requires a value" >&2
+                exit 2
+            }
+            nvim_cmd="$2"
+            shift 2
+            ;;
+        --server)
+            [ "$#" -ge 2 ] || {
+                printf '%s\n' "prompt-nvim: --server requires a value" >&2
+                exit 2
+            }
+            server="$2"
+            shift 2
+            ;;
+        --no-bridge)
+            bridge=0
+            shift
+            ;;
+        --print-shell)
+            [ "$#" -ge 2 ] || {
+                printf '%s\n' "prompt-nvim: --print-shell requires a value" >&2
+                exit 2
+            }
+            print_shell "$2"
+            exit 0
+            ;;
+        --check)
+            check
+            exit "$?"
+            ;;
+        --help | -h)
+            usage
+            exit 0
+            ;;
+        --version)
+            printf '%s\n' "prompt-nvim $VERSION"
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            printf '%s\n' "prompt-nvim: unknown option: $1" >&2
+            exit 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+[ "$#" -gt 0 ] || {
+    printf '%s\n' "prompt-nvim: missing prompt file" >&2
+    exit 2
+}
+
+export PROMPT_NVIM_TARGET="$target"
+export PROMPT_NVIM_BRIDGE="$bridge"
+
+if [ -n "$server" ]; then
+    export PROMPT_NVIM_SERVER="$server"
+    exec "$nvim_cmd" --server "$server" --remote-wait "$@"
+fi
+
+exec "$nvim_cmd" "$@"
