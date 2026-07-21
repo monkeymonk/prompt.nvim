@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-07-21
+
+### Fixed
+
+- `@` completion crashed on first use with `E5560: nvim_buf_is_valid must not be
+  called in a fast event context`. The completion aggregator's `finish()` ran
+  its staleness check (and normalize/rank) synchronously, but a filesystem
+  source calls back from `vim.system`'s `on_exit` (a libuv fast-event context)
+  where `nvim_*` calls are forbidden. `finish()` now defers all of that work via
+  `vim.schedule`. Regression test added for a source that calls back from a raw
+  fast-event context.
+
 ## [0.2.0] - 2026-07-21
 
 ### Bridge Correctness

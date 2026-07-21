@@ -21,6 +21,48 @@ local function ctx_for(target, before_cursor, extra)
   return vim.tbl_extend("force", base, extra or {})
 end
 
+-- 0. A source that calls back from a RAW libuv fast-event context (not
+-- vim.schedule_wrap'd) — exactly like the real fd/rg source calling back from
+-- vim.system's on_exit. finish() must defer its nvim_* work (nvim_buf_is_valid)
+-- via vim.schedule, or this raises `E5560: ... must not be called in a fast
+-- event context` and the request hangs (the outer callback never fires). The
+-- other tests here all schedule_wrap their callbacks, so this is the only one
+-- that exercises the fast-event path.
+function M.test_finish_tolerates_fast_event_callback()
+  require("prompt").setup({})
+  require("prompt.registry").register_target("race_fast", {
+    triggers = { ["@"] = { sources = { "race_fast_src" } } },
+  }, { override = true })
+  require("prompt.sources").register("race_fast_src", {
+    complete = function(_, cb)
+      local timer = vim.uv.new_timer()
+      timer:start(0, 0, function()
+        timer:stop()
+        timer:close()
+        cb({ { label = "fast", insert_text = "fast", kind = "file" } })
+      end)
+      return function() end
+    end,
+  }, { override = true })
+
+  local bufnr = scratch_buf()
+  local done, result = false, nil
+  require("prompt.completion").complete(
+    vim.tbl_extend("force", ctx_for("race_fast", "@"), { bufnr = bufnr }),
+    function(r)
+      done = true
+      result = r
+    end
+  )
+  assert(
+    vim.wait(1000, function()
+      return done
+    end, 10),
+    "completion must finish from a fast-event (libuv) callback without E5560"
+  )
+  assert(#result == 1 and result[1].label == "fast", "the item must be delivered")
+end
+
 -- 1. A request issued after an in-flight one supersedes it: the stale
 -- request's callback must never fire, even once its own (slower) source
 -- eventually finishes.

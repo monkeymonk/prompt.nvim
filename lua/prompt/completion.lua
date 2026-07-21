@@ -119,19 +119,26 @@ function M.complete(ctx, callback)
   end
 
   local function finish()
-    if is_stale() then
-      return
-    end
-    local normalized = require("prompt.candidate").normalize_all(collected, ctx)
-    local ranked = require("prompt.ranking").sort(normalized, ctx)
-    local total_ms = (vim.uv.hrtime() - request_start) / 1e6
-    log.debug(
-      string.format("completion request %d: total: %dms %d items", request.id, total_ms, #collected)
-    )
+    -- finish() may run in a libuv fast-event context (a source that calls back
+    -- from vim.system's on_exit, e.g. the fd/rg scan), where nvim_* API calls
+    -- are forbidden (E5560). Defer ALL of the work — the staleness check, which
+    -- calls nvim_buf_is_valid, plus normalize/rank and the callback — into a
+    -- normal context.
     vim.schedule(function()
       if is_stale() then
         return
       end
+      local normalized = require("prompt.candidate").normalize_all(collected, ctx)
+      local ranked = require("prompt.ranking").sort(normalized, ctx)
+      local total_ms = (vim.uv.hrtime() - request_start) / 1e6
+      log.debug(
+        string.format(
+          "completion request %d: total: %dms %d items",
+          request.id,
+          total_ms,
+          #collected
+        )
+      )
       callback(ranked)
     end)
   end
