@@ -13,6 +13,8 @@ local module_names = {
   "shell",
   "cmp",
   "integration",
+  "completion_race",
+  "backend_parity",
 }
 
 local passed = 0

@@ -21,7 +21,13 @@ end
 function M.normalize_all(items, ctx)
   local result = {}
   for _, item in ipairs(items) do
-    table.insert(result, M.normalize(item, ctx))
+    -- Skip malformed (non-table) items rather than indexing them: a source
+    -- returning a stray non-table would otherwise error inside the aggregator's
+    -- finish(), which is swallowed by its xpcall and silently hangs the whole
+    -- completion request (the outer callback never fires).
+    if type(item) == "table" then
+      table.insert(result, M.normalize(item, ctx))
+    end
   end
   return result
 end

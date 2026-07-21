@@ -5,7 +5,10 @@ function M.test_shell_trigger_word_query()
   local T = require("prompt.trigger")
 
   local first = T.parse({ before_cursor = "!np", target = "claude" })
-  assert(first and first.trigger == "!" and first.query == "np" and first.query_col == 1, "first word")
+  assert(
+    first and first.trigger == "!" and first.query == "np" and first.query_col == 1,
+    "first word"
+  )
 
   local arg = T.parse({ before_cursor = "! cat src/re", target = "claude" })
   assert(arg and arg.trigger == "!" and arg.query == "src/re", "argument word")

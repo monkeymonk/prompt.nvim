@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage Question
+    url: https://github.com/monkeymonk/prompt.nvim/discussions
+    about: Ask how to use a feature or troubleshoot a problem
+  - name: Security Issue
+    url: https://github.com/monkeymonk/prompt.nvim/security/advisories
+    about: Report a security vulnerability privately

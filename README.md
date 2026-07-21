@@ -26,7 +26,7 @@ muscle memory behind the exact characters the tool already understands.
 - **Bring your own engine.** blink.cmp, nvim-cmp, or the built-in native
   completer. Active only in prompt buffers — silent everywhere else.
 - **Round-trip safely.** `:wq` returns the prompt; cancel restores the original,
-  byte for byte.
+  byte for byte (raw bytes preserved: CRLF, BOM, no final newline, encoding).
 - **Degrade gracefully.** No `fd`? No completion framework? No detected tool? It
   still works.
 
@@ -199,9 +199,39 @@ require("cmp").setup({
 | OpenCode    | `@` files/dirs/agents · `/` cmds              | `$OPENCODE_CONFIG_DIR` or `~/.config/opencode`  |
 | Pi          | `@` files/dirs · `/` cmds+skills+prompts      | `~/.config/pi` or `~/.pi`                       |
 
-Codex CLI now shares Claude Code's `@`/`/`/`!` bindings. Connectors for Codex,
-Gemini, OpenCode, and Pi track each tool's documented layout and are marked
-version-tentative in their source — verify against your installed version.
+Codex CLI shares Claude Code's `@`/`/`/`!` bindings; both are **stable**
+connectors. The Gemini, OpenCode, and Pi connectors track each tool's
+documented layout but are **experimental** — verify against your installed
+version (see Compatibility below and `:checkhealth prompt`).
+
+## Compatibility
+
+**Stable connectors** (tested and actively maintained):
+- Claude Code
+- Codex CLI
+
+**Experimental connectors** (version-tentative; reported in `:checkhealth prompt`):
+- Gemini CLI
+- OpenCode
+- Pi
+
+File discovery follows this backend order: `fd` → `rg` → `git` → Lua walk.
+Each backend includes tracked and untracked files, excluding ignored entries and
+`ignore` config patterns. The pure-Lua fallback does NOT honor `.gitignore`; use
+`fd`, `rg`, or `git` when `.gitignore` respect is required. Run `:checkhealth
+prompt` for backend availability and tested version ranges per connector.
+
+## Server mode
+
+Open prompts in an existing Neovim server instance (e.g. your main editor) by
+passing `--server <socket>` to `prompt-nvim`. The launcher registers metadata
+via RPC and attaches the buffer as a bridge session, allowing two concurrent
+prompt edits with independent session state. The server remains open after
+returning the prompt:
+
+```sh
+prompt-nvim --server /tmp/nvim-user.sock --target codex prompt.txt
+```
 
 ## Configuration
 
@@ -236,6 +266,8 @@ require("prompt").setup({
   completion = {
     min_query_length = 0,          -- chars after the trigger before completing
     max_results = 100,
+    source_timeout_ms = 750,       -- drop a source that hasn't answered in time
+    max_items_per_source = 500,    -- cap items accepted from any one source
   },
 
   paths = {
@@ -244,6 +276,9 @@ require("prompt").setup({
     respect_gitignore = true,
     max_results = 200,
     max_depth = nil,
+    scan_timeout_ms = 1000,        -- kill an fd/rg/git scan that runs too long
+    max_entries_scanned = 100000,  -- hard cap for the pure-Lua fallback walk
+    follow_symlinks = false,       -- do not descend symlinked directories
     directory_trailing_slash = true,
     ignore = { ".git", "node_modules", "vendor", "dist", "build", "target", ".next", ".cache" },
   },
@@ -280,7 +315,7 @@ targets = {
 | `:PromptRefresh`          | Clear discovery/path caches.                    |
 | `:PromptReturn`           | Save and return to the AI tool.                 |
 | `:PromptCancel`           | Restore the original prompt and return.         |
-| `:PromptInfo`             | Sanitized runtime info.                         |
+| `:PromptInfo`             | Session info: id, target, cwd, root, mode, backend, versions (no prompt content). |
 | `:PromptHealth`           | Run health checks.                              |
 
 ## Statusline
@@ -319,6 +354,10 @@ vim.api.nvim_set_hl(0, "PromptReferenceAgent",     { fg = "#e0af68", bold = true
 
 Full reference — including the extension API (`register_target`,
 `register_source`, `register_connector`) — lives in `:help prompt.nvim`.
+
+Extensions can declare their API compatibility via `require("prompt").api_version`
+(currently `1`); use it to warn on breaking API changes or perform
+version-gated registrations.
 
 ## License
 

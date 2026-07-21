@@ -3,11 +3,20 @@ local M = {}
 M.defaults = {
   default_target = nil,
   bridge = { enabled = true, cancel_strategy = "restore", close_on_return = true },
-  buffer = { filetype = "markdown", wrap = true, linebreak = true, breakindent = true, spell = false, swapfile = false },
+  buffer = {
+    filetype = "markdown",
+    wrap = true,
+    linebreak = true,
+    breakindent = true,
+    spell = false,
+    swapfile = false,
+  },
   keymaps = { return_prompt = "<C-CR>", cancel_prompt = nil, complete = "<C-x><C-a>" },
   completion = {
     min_query_length = 0,
     max_results = 100,
+    source_timeout_ms = 750,
+    max_items_per_source = 500,
   },
   paths = {
     root_markers = { ".git", "CLAUDE.md", "AGENTS.md", "GEMINI.md" },
@@ -15,6 +24,9 @@ M.defaults = {
     respect_gitignore = true,
     max_results = 200,
     max_depth = nil,
+    scan_timeout_ms = 1000,
+    max_entries_scanned = 100000,
+    follow_symlinks = false,
     directory_trailing_slash = true,
     ignore = { ".git", "node_modules", "vendor", "dist", "build", "target", ".next", ".cache" },
   },

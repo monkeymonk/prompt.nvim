@@ -1,10 +1,15 @@
 local M = {}
 
 M._setup_done = false
+M.api_version = 1
 
 local function register_builtins()
   for _, name in ipairs({ "claude", "codex", "gemini", "opencode", "pi" }) do
-    require("prompt.registry").register_target(name, require("prompt.targets." .. name), { override = true })
+    require("prompt.registry").register_target(
+      name,
+      require("prompt.targets." .. name),
+      { override = true }
+    )
   end
 end
 
@@ -49,6 +54,71 @@ function M.setup_autocmds()
   })
 end
 
+-- Existing-server (--server) sessions: the launcher registers metadata via
+-- `--remote-expr` (see `prompt.remote`) before it blocks on `--remote-wait`.
+-- When that file's buffer is opened here, attach the session for it. Cheap
+-- for every buffer read: `is_pending` is a plain table lookup that only
+-- matches launcher-registered prompt files.
+function M.setup_remote()
+  local group = vim.api.nvim_create_augroup("PromptRemote", { clear = true })
+  vim.api.nvim_create_autocmd({ "BufReadPost", "BufAdd" }, {
+    group = group,
+    callback = function(args)
+      local remote = require("prompt.remote")
+      if not remote.is_pending(args.buf) then
+        return
+      end
+      if not M._setup_done then
+        M.setup({})
+      end
+      remote.attach_pending(args.buf)
+    end,
+  })
+end
+
+-- Bridge session lifecycle: make sure quitting the editor (or the buffer
+-- simply going away) never leaves a session dangling. On quit, a modified
+-- buffer being force-quit (:q!/:qa!) restores the original byte-for-byte, while
+-- a saved/clean quit (:wq/:x/:qa) keeps what was written (see
+-- bridge.finalize_on_quit). BufUnload/BufDelete always brings the session to
+-- "closed" and clears it. State-guarded, so it's a no-op for anything already
+-- returned/cancelled/failed via the explicit commands.
+function M.setup_lifecycle()
+  local group = vim.api.nvim_create_augroup("PromptLifecycle", { clear = true })
+
+  local function finalize_active_bridge_buffers()
+    local session_mod = require("prompt.session")
+    local bridge = require("prompt.bridge")
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if
+        vim.api.nvim_buf_is_loaded(bufnr)
+        and session_mod.is_active(bufnr)
+        and bridge.is_bridge_buffer(bufnr)
+      then
+        -- Keep saved edits (:wq) and restore only on force-quit (:q!); never
+        -- blindly cancel, which would discard a saved prompt.
+        bridge.finalize_on_quit(bufnr)
+      end
+    end
+  end
+
+  vim.api.nvim_create_autocmd({ "QuitPre", "VimLeavePre" }, {
+    group = group,
+    callback = finalize_active_bridge_buffers,
+  })
+
+  vim.api.nvim_create_autocmd({ "BufUnload", "BufDelete" }, {
+    group = group,
+    callback = function(args)
+      local session_mod = require("prompt.session")
+      if session_mod.get(args.buf) then
+        session_mod.set_state(args.buf, "closed")
+        session_mod.clear(args.buf)
+      end
+    end,
+  })
+end
+
 function M.setup(opts)
   local config = require("prompt.config").setup(opts)
 
@@ -66,6 +136,8 @@ function M.setup(opts)
 
   require("prompt.commands").create()
   M.setup_bridge()
+  M.setup_remote()
+  M.setup_lifecycle()
   M.setup_autocmds()
   require("prompt.highlight").setup_hl()
 

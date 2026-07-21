@@ -111,4 +111,75 @@ function M.scan_md_prompts(dir, scope, source_name, out)
   scan_md(dir, scope, source_name, out, "prompt")
 end
 
+-- C5: connector output contract. Every connector's `discover()` is expected to
+-- produce items shaped like:
+--   { label=, insert_text=, kind=, scope=, source_path=, documentation= }
+-- `source_path` is carried on the item as `path` (candidate.lua/ranking.lua
+-- read `item.path` for open-buffer boosting and are not owned by this
+-- package), so validation accepts either `item.source_path` or `item.path`
+-- and normalizes both onto the item.
+local VALID_KINDS = { command = true, skill = true, agent = true, prompt = true }
+
+-- Validate a single connector-produced item. Returns `(normalized_item, nil)`
+-- on success or `(nil, err)` on failure, where `err` names the offending
+-- field.
+function M.validate_item(item)
+  if type(item) ~= "table" then
+    return nil, "item is not a table"
+  end
+  if type(item.label) ~= "string" or item.label == "" then
+    return nil, "invalid or missing field: label"
+  end
+  if item.insert_text ~= nil and type(item.insert_text) ~= "string" then
+    return nil, "invalid field: insert_text"
+  end
+  if type(item.kind) ~= "string" or not VALID_KINDS[item.kind] then
+    return nil, "invalid or missing field: kind (" .. tostring(item.kind) .. ")"
+  end
+  if item.scope ~= nil and type(item.scope) ~= "string" then
+    return nil, "invalid field: scope"
+  end
+  local source_path = item.source_path or item.path
+  if source_path ~= nil and type(source_path) ~= "string" then
+    return nil, "invalid field: source_path"
+  end
+  if
+    item.documentation ~= nil
+    and type(item.documentation) ~= "string"
+    and type(item.documentation) ~= "table"
+  then
+    return nil, "invalid field: documentation"
+  end
+
+  local normalized = vim.deepcopy(item)
+  normalized.insert_text = item.insert_text or item.label
+  normalized.source_path = source_path
+  normalized.path = source_path
+  return normalized, nil
+end
+
+-- Drop and debug-log invalid items; cap the count at
+-- `completion.max_items_per_source` (defense in depth — the completion
+-- aggregator also enforces this cap, but a single connector should not be
+-- able to build an unbounded table before it gets there).
+function M.normalize_items(list)
+  local out = {}
+  if type(list) ~= "table" then
+    return out
+  end
+  local cap = require("prompt.config").get().completion.max_items_per_source
+  for _, item in ipairs(list) do
+    local normalized, err = M.validate_item(item)
+    if normalized then
+      table.insert(out, normalized)
+      if cap and #out >= cap then
+        break
+      end
+    else
+      require("prompt.log").debug("connector item dropped: " .. tostring(err))
+    end
+  end
+  return out
+end
+
 return M

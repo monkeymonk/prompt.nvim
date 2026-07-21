@@ -4,7 +4,7 @@
 
 set -eu
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 
 target="${PROMPT_NVIM_TARGET:-}"
 bridge="${PROMPT_NVIM_BRIDGE:-1}"
@@ -136,12 +136,100 @@ done
     exit 2
 }
 
+file="$1"
+
+# The prompt file must be addressed absolutely: in --server mode the server
+# opens it relative to ITS cwd, not ours, and the plugin keys the session on
+# the normalized absolute path.
+case "$file" in
+    /*) abs_file="$file" ;;
+    *) abs_file="$PWD/$file" ;;
+esac
+
+launch_cwd="$PWD"
+session_id="${PROMPT_NVIM_SESSION:-p$$-$(od -An -N4 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || echo "$$")}"
+
 export PROMPT_NVIM_TARGET="$target"
 export PROMPT_NVIM_BRIDGE="$bridge"
+export PROMPT_NVIM_CWD="$launch_cwd"
+export PROMPT_NVIM_SESSION="$session_id"
+
+# Raw-byte backup in a private temp dir. Cancellation restores from this
+# (byte for byte); the launcher also restores it if the editor crashes.
+backup=""
+backup_dir=$(mktemp -d 2>/dev/null || echo "")
+if [ -n "$backup_dir" ]; then
+    backup="$backup_dir/backup"
+    cp -p -- "$abs_file" "$backup" 2>/dev/null || backup=""
+fi
+export PROMPT_NVIM_BACKUP="$backup"
+
+cleanup() {
+    [ -n "$backup_dir" ] && rm -rf -- "$backup_dir" 2>/dev/null || true
+}
+
+# JSON string escaping for the server-mode spec (backslash then quote).
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+status=0
 
 if [ -n "$server" ]; then
     export PROMPT_NVIM_SERVER="$server"
-    exec "$nvim_cmd" --server "$server" --remote-wait "$@"
+
+    # Neovim has no --remote-wait (E5600), so we drive the server over
+    # --remote-expr: open the prompt in it, then poll until the user closes the
+    # buffer. Session metadata goes through a temp JSON file rather than an
+    # inline --remote-expr literal so target/path characters never have to
+    # survive shell -> VimL -> Lua escaping; the server reads and decodes it.
+    if [ -z "$backup_dir" ]; then
+        printf '%s\n' "prompt-nvim: cannot create a temp dir for --server mode" >&2
+        exit 1
+    fi
+
+    bridge_bool=false
+    [ "$bridge" = "1" ] && bridge_bool=true
+    spec_file="$backup_dir/spec.json"
+    printf '{"file":"%s","target":"%s","cwd":"%s","session_id":"%s","bridge":%s,"backup":"%s"}\n' \
+        "$(json_escape "$abs_file")" \
+        "$(json_escape "$target")" \
+        "$(json_escape "$launch_cwd")" \
+        "$(json_escape "$session_id")" \
+        "$bridge_bool" \
+        "$(json_escape "$backup")" >"$spec_file"
+
+    opened=$("$nvim_cmd" --server "$server" \
+        --remote-expr "luaeval('require(\"prompt.remote\").open_from_file(_A)', '$spec_file')" 2>/dev/null || echo 0)
+    case "$opened" in
+        *1*) ;;
+        *)
+            printf '%s\n' "prompt-nvim: server did not open the prompt (is prompt.nvim loaded there?)" >&2
+            cleanup
+            exit 1
+            ;;
+    esac
+
+    # Poll until the session buffer closes (return/cancel). A missing/dead
+    # server yields empty output -> treated as closed, so we never hang forever.
+    while :; do
+        open=$("$nvim_cmd" --server "$server" \
+            --remote-expr "luaeval('require(\"prompt.remote\").is_open(_A)', '$session_id')" 2>/dev/null || echo 0)
+        case "$open" in
+            *1*) sleep 0.2 ;;
+            *) break ;;
+        esac
+    done
+
+    cleanup
+    exit 0
 fi
 
-exec "$nvim_cmd" "$@"
+# Fresh process. Not exec'd, so we can restore the backup on a crash and clean
+# up. Normal cancel is byte-restored in-plugin; this is the crash safety net.
+"$nvim_cmd" "$@" || status=$?
+if [ "$status" -gt 128 ] && [ -n "$backup" ] && [ -f "$backup" ]; then
+    cp -- "$backup" "$abs_file" 2>/dev/null || true
+fi
+cleanup
+exit "$status"

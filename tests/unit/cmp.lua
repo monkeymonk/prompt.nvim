@@ -8,8 +8,10 @@ function M.test_cmp_source_builds_items()
   vim.fn.writefile({ "return {}" }, fixture .. "/src/a.lua")
 
   vim.cmd("enew")
-  require("prompt.buffer").attach(0, "claude")
+  -- cd into the fixture BEFORE attaching: the session captures its launch cwd
+  -- at attach time (C2), which is where file discovery is rooted.
   vim.cmd("cd " .. vim.fn.fnameescape(fixture))
+  require("prompt.buffer").attach(0, "claude")
   vim.api.nvim_buf_set_lines(0, 0, -1, false, { "@src/a" })
   vim.wo.virtualedit = "onemore"
   vim.api.nvim_win_set_cursor(0, { 1, #"@src/a" })

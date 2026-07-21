@@ -3,6 +3,17 @@ local M = {}
 
 M.name = "pi"
 
+-- #20/#21: compatibility metadata used by `:checkhealth prompt`.
+-- `tested_versions` is left nil (no verified range recorded yet); health
+-- reports this as an untested range rather than inventing numbers.
+M.meta = {
+  name = "pi",
+  stability = "experimental",
+  executable = "pi",
+  version_command = { "pi", "--version" },
+  tested_versions = nil,
+}
+
 function M.available()
   return vim.fn.executable("pi") == 1
 end

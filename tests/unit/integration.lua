@@ -10,7 +10,10 @@ local function build_fixture()
   vim.fn.mkdir(fixture .. "/src", "p")
 
   vim.fn.writefile({ "# claude" }, fixture .. "/CLAUDE.md")
-  vim.fn.writefile({ "---", "name: sec", "description: d", "---", "body" }, fixture .. "/.claude/skills/sec/SKILL.md")
+  vim.fn.writefile(
+    { "---", "name: sec", "description: d", "---", "body" },
+    fixture .. "/.claude/skills/sec/SKILL.md"
+  )
   vim.fn.writefile({ "deploy the app" }, fixture .. "/.claude/commands/dep.md")
   vim.fn.writefile({ "return {}" }, fixture .. "/src/a.lua")
 

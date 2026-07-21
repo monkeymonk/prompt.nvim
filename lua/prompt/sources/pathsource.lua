@@ -19,7 +19,7 @@ function M.complete(ctx, callback, opts)
 
   if spec.mode == "segment" then
     local show_hidden = cfg.paths.include_hidden or spec.base:sub(1, 1) == "."
-    fs.list_dir(spec.dir, function(entries)
+    return fs.list_dir(spec.dir, function(entries)
       local items = {}
       for _, e in ipairs(entries) do
         if e.type == opts.entry_type and (show_hidden or e.name:sub(1, 1) ~= ".") then
@@ -36,16 +36,9 @@ function M.complete(ctx, callback, opts)
       end
       callback(items)
     end)
-    return
   end
 
-  fs.list(ctx.root, {
-    include_hidden = cfg.paths.include_hidden,
-    respect_gitignore = cfg.paths.respect_gitignore,
-    ignore = cfg.paths.ignore,
-    max_results = cfg.paths.max_results,
-    max_depth = cfg.paths.max_depth,
-  }, function(res)
+  return fs.list(ctx.root, cfg.paths, function(res)
     local items = {}
     for _, rel in ipairs(res[opts.repo_field] or {}) do
       local text = decorate(rel)

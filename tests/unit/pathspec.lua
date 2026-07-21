@@ -22,7 +22,10 @@ end
 function M.test_parent_segment_query()
   local spec = filesystem.resolve_query(ROOT, "../")
   assert(spec.mode == "segment", "expected mode segment, got " .. tostring(spec.mode))
-  assert(spec.dir == vim.fn.fnamemodify(ROOT, ":h"), "expected parent dir, got " .. tostring(spec.dir))
+  assert(
+    spec.dir == vim.fn.fnamemodify(ROOT, ":h"),
+    "expected parent dir, got " .. tostring(spec.dir)
+  )
 end
 
 function M.test_absolute_segment_query()

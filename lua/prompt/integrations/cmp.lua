@@ -36,13 +36,42 @@ local KIND = {
 function source:complete(_params, callback)
   local ctx = require("prompt.context").build()
   local CIK = vim.lsp.protocol.CompletionItemKind
+  local bufnr = ctx.bufnr
+  local captured_target = ctx.target
+  local captured_row = ctx.row
 
-  require("prompt.completion").complete(ctx, function(ranked)
+  -- Cancel any in-flight request from this source (e.g. a filesystem scan)
+  -- before issuing a new one so stale work doesn't keep running.
+  if self._cancel then
+    pcall(self._cancel)
+    self._cancel = nil
+  end
+
+  self._cancel = require("prompt.completion").complete(ctx, function(ranked)
+    -- Drop stale results: buffer gone, target changed, or cursor moved away
+    -- from the query region since this request was issued.
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    if ctx.target ~= captured_target then
+      return
+    end
+    local ok, cursor = pcall(vim.api.nvim_win_get_cursor, 0)
+    if not ok then
+      return
+    end
+    local row, col = cursor[1], cursor[2]
+    local query_col = ctx.query_col or ctx.col
+    if row ~= captured_row or col < query_col then
+      return
+    end
+
     local items = {}
     for i, c in ipairs(ranked or {}) do
       local doc
       if c.documentation then
-        local value = type(c.documentation) == "table" and table.concat(c.documentation, "\n") or c.documentation
+        local value = type(c.documentation) == "table" and table.concat(c.documentation, "\n")
+          or c.documentation
         doc = { kind = "markdown", value = value }
       end
       items[#items + 1] = {

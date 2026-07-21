@@ -12,22 +12,35 @@ function M.build(bufnr, winid)
   local after = line:sub(col + 1)
 
   local target = require("prompt.target").resolve(bufnr)
-  local cwd = vim.fn.getcwd()
-
-  -- Choose the directory to detect the project root from. In bridge mode the
-  -- buffer is a temporary prompt file the AI tool stores elsewhere (e.g. under
-  -- ~/.claude/projects/...), so walking up from it would find the wrong root
-  -- (~/.claude). The real project is the directory the tool was launched from,
-  -- which nvim inherits as its cwd. For normal buffers, use the file's dir.
   local bridge = require("prompt.bridge").is_bridge_buffer(bufnr)
-  local bufname = vim.api.nvim_buf_get_name(bufnr)
-  local start
-  if bridge or bufname == "" then
-    start = cwd
+
+  -- C2: session-backed buffers (bridge/remote prompts) derive cwd/root from
+  -- the session's launch_cwd/root — the AI TOOL's project dir at launch,
+  -- never this (possibly shared, in server mode) nvim's own getcwd(). Only
+  -- non-session buffers fall back to the previous getcwd()/root.detect logic.
+  local session = require("prompt.session").get(bufnr)
+  local cwd, root
+  if session then
+    cwd = session.launch_cwd or vim.fn.getcwd()
+    root = session.root or require("prompt.root").detect(cwd)
   else
-    start = vim.fn.fnamemodify(bufname, ":h")
+    cwd = vim.fn.getcwd()
+
+    -- Choose the directory to detect the project root from. In bridge mode
+    -- the buffer is a temporary prompt file the AI tool stores elsewhere
+    -- (e.g. under ~/.claude/projects/...), so walking up from it would find
+    -- the wrong root (~/.claude). The real project is the directory the tool
+    -- was launched from, which nvim inherits as its cwd. For normal buffers,
+    -- use the file's dir.
+    local bufname = vim.api.nvim_buf_get_name(bufnr)
+    local start
+    if bridge or bufname == "" then
+      start = cwd
+    else
+      start = vim.fn.fnamemodify(bufname, ":h")
+    end
+    root = require("prompt.root").detect(start)
   end
-  local root = require("prompt.root").detect(start)
 
   return {
     bufnr = bufnr,

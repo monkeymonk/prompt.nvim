@@ -13,9 +13,12 @@ function source:get_trigger_characters()
   return require("prompt.registry").trigger_characters()
 end
 
-function source:get_completions(_context, callback)
+function source:get_completions(context, callback)
   -- Build prompt.nvim context from the current buffer/window.
-  local ctx = require("prompt.context").build(_context and _context.bufnr or nil)
+  local ctx = require("prompt.context").build(context and context.bufnr or nil)
+  local bufnr = ctx.bufnr
+  local captured_target = ctx.target
+  local captured_row = ctx.row
 
   local CIK = vim.lsp.protocol.CompletionItemKind
   local kind_map = {
@@ -30,12 +33,33 @@ function source:get_completions(_context, callback)
     resource = CIK.Reference,
   }
 
-  require("prompt.completion").complete(ctx, function(ranked)
+  -- Return the real cancel function from the aggregator so blink.cmp can abort
+  -- in-flight sources (e.g. filesystem scans) when superseded or aborted.
+  return require("prompt.completion").complete(ctx, function(ranked)
+    -- Drop stale results: buffer gone, target changed, or cursor moved away
+    -- from the query region since this request was issued.
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    if ctx.target ~= captured_target then
+      return
+    end
+    local ok, cursor = pcall(vim.api.nvim_win_get_cursor, 0)
+    if not ok then
+      return
+    end
+    local row, col = cursor[1], cursor[2]
+    local query_col = ctx.query_col or ctx.col
+    if row ~= captured_row or col < query_col then
+      return
+    end
+
     local items = {}
     for i, c in ipairs(ranked or {}) do
       local doc
       if c.documentation then
-        local value = type(c.documentation) == "table" and table.concat(c.documentation, "\n") or c.documentation
+        local value = type(c.documentation) == "table" and table.concat(c.documentation, "\n")
+          or c.documentation
         doc = { kind = "markdown", value = value }
       end
       items[#items + 1] = {
@@ -63,9 +87,6 @@ function source:get_completions(_context, callback)
       items = items,
     })
   end)
-
-  -- Return a no-op cancellation function.
-  return function() end
 end
 
 return source

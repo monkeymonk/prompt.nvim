@@ -29,13 +29,21 @@ function M.apply(bufnr)
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
 
   local config = require("prompt.config").get()
-  if not config.highlight.enabled then return end
-  if not require("prompt.buffer").is_attached(bufnr) then return end
+  if not config.highlight.enabled then
+    return
+  end
+  if not require("prompt.buffer").is_attached(bufnr) then
+    return
+  end
 
   local target_name = require("prompt.target").resolve(bufnr)
-  if not target_name then return end
+  if not target_name then
+    return
+  end
   local def = require("prompt.registry").get_target(target_name)
-  if not def or not def.triggers then return end
+  if not def or not def.triggers then
+    return
+  end
 
   pcall(function()
     local trigger = require("prompt.trigger")
@@ -55,7 +63,9 @@ end
 function M.attach(bufnr)
   bufnr = bufnr or 0
   local config = require("prompt.config").get()
-  if not config.highlight.enabled then return end
+  if not config.highlight.enabled then
+    return
+  end
 
   local group_name = ("prompt_hl_%d"):format(bufnr)
   local group = vim.api.nvim_create_augroup(group_name, { clear = true })

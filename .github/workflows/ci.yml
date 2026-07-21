@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stylua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.5.2
+          args: --check .
+
+  luacheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install luacheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+      - name: Run luacheck
+        run: luacheck lua/ tests/
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        # --severity=warning: the info-level SC2317 (unreachable — a false
+        # positive for trap-invoked cleanup functions) and SC2015 are advisory.
+        run: shellcheck -s sh --severity=warning bin/prompt-nvim tests/integration/*.sh
+
+  shfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shfmt
+        # Download the pinned binary directly. `go install`'s output dir isn't
+        # reliably on PATH on the runner (command-not-found); a direct download
+        # to a PATH-registered dir is deterministic and reproducible.
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/shfmt" \
+            https://github.com/mvdan/sh/releases/download/v3.10.0/shfmt_v3.10.0_linux_amd64
+          chmod +x "$HOME/.local/bin/shfmt"
+          echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+      - name: shfmt --diff
+        run: shfmt --diff -i 4 -ci bin/prompt-nvim tests/integration/*.sh
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim: [stable, nightly]
+    continue-on-error: ${{ matrix.nvim == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.nvim }}
+      - name: Install fd/ripgrep (best-effort backend parity coverage)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fd-find ripgrep
+          sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+      - name: Run headless unit tests
+        run: nvim --headless -u tests/minimal_init.lua -l tests/run.lua
+
+  launcher-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim: [stable, nightly]
+    continue-on-error: ${{ matrix.nvim == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.nvim }}
+      - name: Run launcher fresh-process integration tests
+        run: tests/integration/launcher_spec.sh
+
+  server-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim: [stable, nightly]
+    continue-on-error: ${{ matrix.nvim == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.nvim }}
+      - name: Run existing-server integration tests
+        run: tests/integration/server_spec.sh
+
+  install-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Run install / version-mismatch smoke tests
+        run: tests/integration/install_smoke_spec.sh

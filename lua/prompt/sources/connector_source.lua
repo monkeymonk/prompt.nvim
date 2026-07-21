@@ -8,11 +8,26 @@ function M.make(connector_name, kind)
       if not c then
         return callback({})
       end
-      local ok = pcall(c.discover, kind, ctx, function(items)
-        callback(items or {})
-      end)
+
+      -- Guard fire-once: a `discover` that calls back and THEN throws (e.g.
+      -- in cleanup code after the callback) must not fire `callback` twice.
+      local fired = false
+      local function done(items)
+        if fired then
+          return
+        end
+        fired = true
+        -- C5: run every connector's output through central validation before
+        -- it reaches completion.
+        callback(require("prompt.connectors.util").normalize_items(items or {}))
+      end
+
+      local ok, err = pcall(c.discover, kind, ctx, done)
       if not ok then
-        callback({})
+        require("prompt.log").debug(
+          string.format("connector %s (%s) discover error: %s", connector_name, kind, tostring(err))
+        )
+        done({})
       end
     end,
   }

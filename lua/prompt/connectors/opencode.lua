@@ -3,6 +3,17 @@ local M = {}
 
 M.name = "opencode"
 
+-- #20/#21: compatibility metadata used by `:checkhealth prompt`.
+-- `tested_versions` is left nil (no verified range recorded yet); health
+-- reports this as an untested range rather than inventing numbers.
+M.meta = {
+  name = "opencode",
+  stability = "experimental",
+  executable = "opencode",
+  version_command = { "opencode", "--version" },
+  tested_versions = nil,
+}
+
 function M.available()
   return vim.fn.executable("opencode") == 1
 end

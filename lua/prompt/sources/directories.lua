@@ -3,7 +3,7 @@ M.name = "directories"
 
 function M.complete(ctx, callback)
   local trailing = require("prompt.config").get().paths.directory_trailing_slash
-  require("prompt.sources.pathsource").complete(ctx, callback, {
+  return require("prompt.sources.pathsource").complete(ctx, callback, {
     entry_type = "directory",
     kind = "directory",
     source = "directories",

@@ -18,7 +18,10 @@ function M.test_prefix_basename_match_ranks_first()
   local normalized = build_candidates()
   local result = ranking.sort(normalized, { query = "au", _max_results = 10 })
   assert(#result > 0, "expected at least one result")
-  assert(result[1].label:find("auth") ~= nil, "expected first result label to contain 'auth', got " .. tostring(result[1].label))
+  assert(
+    result[1].label:find("auth") ~= nil,
+    "expected first result label to contain 'auth', got " .. tostring(result[1].label)
+  )
 end
 
 function M.test_no_match_returns_empty()
