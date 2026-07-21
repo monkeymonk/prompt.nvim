@@ -10,6 +10,10 @@ doing what it does best.
 
 Works with **Claude Code, Codex CLI, Gemini CLI, OpenCode, and Pi**.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="prompt.nvim demo: @ file, / command, and ! shell completion in a Neovim prompt buffer" width="100%">
+</p>
+
 ## Why
 
 You already know your AI tool's syntax. You already know Neovim. prompt.nvim
