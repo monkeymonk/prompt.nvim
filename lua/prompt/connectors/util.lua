@@ -111,6 +111,111 @@ function M.scan_md_prompts(dir, scope, source_name, out)
   scan_md(dir, scope, source_name, out, "prompt")
 end
 
+-- Run connector filesystem work in bounded scheduled chunks. The iterator and
+-- output order are kept per root so this preserves the synchronous scanners'
+-- project-before-user ordering while yielding to the editor between chunks.
+function M.scan_async(specs, callback)
+  local out = {}
+  local cancelled = false
+  local finished = false
+  local spec_index = 1
+  local iterator
+  local scan_spec
+
+  local function finish()
+    if finished or cancelled then
+      return
+    end
+    finished = true
+    callback(out)
+  end
+
+  local function emit(name, ty)
+    local spec = scan_spec
+    if spec.scanner == "skills" then
+      if ty ~= "directory" then return end
+      local path = spec.path .. "/" .. name .. "/SKILL.md"
+      if not vim.uv.fs_stat(path) then return end
+      local fm = require("prompt.frontmatter").parse(path)
+      local label = fm.name or name
+      out[#out + 1] = {
+        label = label, insert_text = label, kind = "skill", source = spec.source_name,
+        scope = spec.scope, detail = "skill · " .. spec.scope, documentation = fm.description, path = path,
+      }
+    elseif ty == "file" then
+      local kind = spec.scanner == "md_commands" and "command"
+        or spec.scanner == "md_agents" and "agent"
+        or spec.scanner == "md_prompts" and "prompt"
+      if spec.scanner == "toml_commands" and name:match("%.toml$") then
+        local path = spec.path .. "/" .. name
+        local documentation
+        local ok, lines = pcall(vim.fn.readfile, path, "", 40)
+        if ok and lines then
+          for _, line in ipairs(lines) do
+            local value = line:match("^%s*description%s*=%s*(.+)$")
+            if value then
+              value = value:gsub("%s+$", "")
+              documentation = value:match('^"(.*)"$') or value:match("^'(.*)'$") or value
+              break
+            end
+          end
+        end
+        out[#out + 1] = {
+          label = name:gsub("%.toml$", ""):gsub("/", ":"), insert_text = name:gsub("%.toml$", ""):gsub("/", ":"),
+          kind = "command", source = spec.source_name, scope = spec.scope,
+          detail = "command · " .. spec.scope, documentation = documentation, path = path,
+        }
+      elseif kind and name:match("%.md$") then
+        local path = spec.path .. "/" .. name
+        local fm = require("prompt.frontmatter").parse(path)
+        local label = name:gsub("%.md$", "")
+        out[#out + 1] = {
+          label = label, insert_text = label, kind = kind, source = spec.source_name,
+          scope = spec.scope, detail = kind .. " · " .. spec.scope, documentation = fm.description, path = path,
+        }
+      end
+    end
+  end
+
+  local function step()
+    if cancelled or finished then return end
+    if iterator == nil then
+      scan_spec = specs[spec_index]
+      if not scan_spec then return finish() end
+      spec_index = spec_index + 1
+      if not M.is_dir(scan_spec.path) then
+        return vim.schedule(step)
+      end
+      local depth = scan_spec.depth
+        or (scan_spec.scanner == "skills" and 1)
+        or (scan_spec.scanner == "md_agents" and 2)
+        or 5
+      local ok, iter = pcall(vim.fs.dir, scan_spec.path, { depth = depth })
+      if not ok then
+        return vim.schedule(step)
+      end
+      iterator = iter
+    end
+
+    local count = 0
+    while count < 32 do
+      local ok, name, ty = pcall(iterator)
+      if not ok or name == nil then
+        iterator = nil
+        return vim.schedule(step)
+      end
+      pcall(emit, name, ty)
+      count = count + 1
+    end
+    vim.schedule(step)
+  end
+
+  vim.schedule(step)
+  return function()
+    cancelled = true
+  end
+end
+
 -- C5: connector output contract. Every connector's `discover()` is expected to
 -- produce items shaped like:
 --   { label=, insert_text=, kind=, scope=, source_path=, documentation= }
@@ -151,7 +256,10 @@ function M.validate_item(item)
     return nil, "invalid field: documentation"
   end
 
-  local normalized = vim.deepcopy(item)
+  local normalized = {}
+  for key, value in pairs(item) do
+    normalized[key] = value
+  end
   normalized.insert_text = item.insert_text or item.label
   normalized.source_path = source_path
   normalized.path = source_path

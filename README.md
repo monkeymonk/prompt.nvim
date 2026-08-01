@@ -208,6 +208,10 @@ connectors. The Gemini, OpenCode, and Pi connectors track each tool's
 documented layout but are **experimental** — verify against your installed
 version (see Compatibility below and `:checkhealth prompt`).
 
+Connector completion reads configured project and user directories even when
+the corresponding CLI executable is not installed; `:checkhealth prompt`
+reports executable availability separately.
+
 ## Compatibility
 
 **Stable connectors** (tested and actively maintained):

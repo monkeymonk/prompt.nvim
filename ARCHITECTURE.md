@@ -116,13 +116,16 @@ agents, prompts) by scanning the tool's project and user config directories.
 
 1. **Register** — connector module exports `meta` (name, stability, executable,
    version_command, tested_versions).
-2. **Available check** — `:checkhealth prompt` and lazy discovery call
-   `M.available()` to verify the tool is on PATH.
+2. **Available check** — `:checkhealth prompt` calls `M.available()` to report
+   whether the tool is on PATH. Completion does not gate discovery on this
+   result, so configured files remain completable without the executable.
 3. **Discover** — on completion, connector's `discover(ctx)` is called with
-   context (target, root, query kind); returns a list of items.
+   context (target, root, query kind); it scans project and user roots in
+   bounded scheduled chunks and returns an idempotent cancellation function.
 4. **Normalize** — items are validated (required: label, insert_text, kind)
    and invalid entries dropped + debug-logged.
-5. **Invalidate** — on `:PromptRefresh`, project-specific caches are cleared.
+5. **Invalidate** — connector writes invalidate the connector cache namespace;
+   `:PromptRefresh` still clears all caches.
 
 ### Stability Levels
 
@@ -205,9 +208,10 @@ callback)`.
 
 ## Caching
 
-Results are cached per completion context (root + discovery type + backend +
-options hash). Cache TTL is configurable (default 30s). `:PromptRefresh`
-clears all caches and invalidates project-scoped discovery.
+Results are cached per connector and completion context, including the project
+root, kind, and every resolved project/user configuration root. Cache TTL is
+configurable (default 30s). Connector writes invalidate only connector
+results; `:PromptRefresh` clears all caches.
 
 ## Logging
 

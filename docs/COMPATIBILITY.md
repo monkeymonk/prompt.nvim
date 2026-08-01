@@ -105,8 +105,8 @@ prompt.nvim
 ============
 
 Backend: nvim 0.11.0 on Linux
-Launcher: prompt-nvim 0.2.0 (OK)
-Plugin: 0.2.0 (OK)
+Launcher: prompt-nvim 0.2.3 (OK)
+Plugin: 0.2.3 (OK)
 
 Connectors:
   claude       stable    2025-01 (executable found, version probed)

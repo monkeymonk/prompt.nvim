@@ -49,7 +49,7 @@ function M.setup_autocmds()
     group = group,
     pattern = { "*/SKILL.md", "*/CLAUDE.md", "*/AGENTS.md", "*/GEMINI.md" },
     callback = function()
-      require("prompt.cache").clear()
+      require("prompt.cache").invalidate_prefix("conn:")
     end,
   })
 end

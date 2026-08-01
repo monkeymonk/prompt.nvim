@@ -10,6 +10,7 @@ function M.normalize(item, ctx)
     source = item.source or "unknown",
     target = item.target or (ctx and ctx.target) or nil,
     scope = item.scope,
+    source_path = item.source_path or item.path,
     path = item.path,
     sort_text = item.sort_text or item.label or item.insert_text or "",
     filter_text = item.filter_text or item.label or item.insert_text or "",

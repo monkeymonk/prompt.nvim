@@ -6,6 +6,7 @@ local module_names = {
   "ranking",
   "root",
   "cache",
+  "connectors",
   "candidate",
   "frontmatter",
   "registry",

@@ -29,6 +29,9 @@ function M.make(connector_name, kind)
         )
         done({})
       end
+      if ok and type(err) == "function" then
+        return err
+      end
     end,
   }
 end

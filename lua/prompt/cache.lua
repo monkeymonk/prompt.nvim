@@ -35,9 +35,20 @@ function M.invalidate(key)
   store[key] = nil
 end
 
-function M.invalidate_project(root)
+function M.invalidate_prefix(prefix)
   for k in pairs(store) do
-    if root == nil or (type(k) == "string" and k:find(root, 1, true)) then
+    if type(k) == "string" and k:sub(1, #prefix) == prefix then
+      store[k] = nil
+    end
+  end
+end
+
+function M.invalidate_project(root, prefix)
+  for k in pairs(store) do
+    if
+      (prefix == nil or (type(k) == "string" and k:sub(1, #prefix) == prefix))
+      and (root == nil or (type(k) == "string" and k:find(root, 1, true)))
+    then
       store[k] = nil
     end
   end
