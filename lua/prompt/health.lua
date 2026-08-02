@@ -111,11 +111,15 @@ function M.check()
       if launcher_version == plugin_version then
         vim.health.ok("launcher version " .. launcher_version .. " matches plugin")
       else
+        -- Name the file actually being run: the usual cause is a stale copy
+        -- left on PATH by an earlier install, and "which one?" is otherwise
+        -- the next question.
         vim.health.warn(
           string.format(
-            "Launcher %s does not match plugin %s. Re-run the plugin build/install step.",
+            "Launcher %s does not match plugin %s. Re-run the plugin build/install step. Launcher in use: %s",
             launcher_version,
-            plugin_version
+            plugin_version,
+            vim.fn.exepath("prompt-nvim")
           )
         )
       end
@@ -189,6 +193,31 @@ function M.check()
     vim.health.info("PROMPT_NVIM_TARGET set outside bridge mode: " .. env)
   else
     vim.health.ok("environment sane")
+  end
+
+  -- Without a resolvable target every trigger parse bails, so completion is
+  -- silently inert while everything above still reports OK. Report which
+  -- source supplies the target, or warn that nothing does.
+  local default_target = require("prompt.config").get().default_target
+  if env and env ~= "" and require("prompt.registry").has(env) then
+    vim.health.ok("target resolves to '" .. env .. "' (from PROMPT_NVIM_TARGET)")
+  elseif default_target and require("prompt.registry").has(default_target) then
+    vim.health.ok("target resolves to '" .. default_target .. "' (from default_target)")
+  else
+    local detail = ""
+    if env and env ~= "" then
+      detail = " PROMPT_NVIM_TARGET is set to '" .. env .. "', which is not a registered target."
+    elseif default_target then
+      detail = " default_target is set to '"
+        .. default_target
+        .. "', which is not a registered target."
+    end
+    vim.health.warn(
+      "No target resolves outside a prompt buffer, so completion would return nothing."
+        .. detail
+        .. " Launch through a wrapper from `prompt-nvim --print-shell <shell>`,"
+        .. " set `default_target` in setup(), or use :PromptTarget in the buffer."
+    )
   end
 end
 

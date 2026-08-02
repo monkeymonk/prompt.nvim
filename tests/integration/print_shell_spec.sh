@@ -141,6 +141,29 @@ test_nushell_alias_accepted() {
     fi
 }
 
+# The nushell instructions tell users to `save -f` the snippet to a file, which
+# freezes a copy that `eval` users never keep. The stamp is how such a copy can
+# be told apart from the running launcher.
+test_snippet_carries_the_launcher_version() {
+    _version=$(sh "$installed" --version 2>/dev/null | awk '{print $2}')
+    if [ -z "$_version" ]; then
+        fail "snippet carries the launcher version" "could not read --version"
+        return
+    fi
+
+    _bad=""
+    for _shell in bash zsh fish nu; do
+        sh "$installed" --print-shell "$_shell" 2>/dev/null |
+            head -n 1 | grep -qF "prompt.nvim $_version" || _bad="$_bad $_shell"
+    done
+
+    if [ -n "$_bad" ]; then
+        fail "snippet carries the launcher version" "missing or wrong stamp for:$_bad"
+    else
+        pass "snippet carries the launcher version ($_version)"
+    fi
+}
+
 test_unknown_shell_is_rejected() {
     sh "$installed" --print-shell bogus >"$work_dir/bogus.txt" 2>"$work_dir/bogus-err.txt"
     status=$?
@@ -157,6 +180,7 @@ test_posix_shells_from_checkout
 test_fish_and_nushell_from_checkout
 test_installed_copy_matches_checkout
 test_posix_snippet_parses
+test_snippet_carries_the_launcher_version
 test_nushell_alias_accepted
 test_unknown_shell_is_rejected
 

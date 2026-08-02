@@ -4,7 +4,7 @@
 
 set -eu
 
-VERSION="0.2.4"
+VERSION="0.2.5"
 
 target="${PROMPT_NVIM_TARGET:-}"
 bridge="${PROMPT_NVIM_BRIDGE:-1}"
@@ -44,7 +44,7 @@ print_shell() {
     case "$_shell" in
         bash | zsh)
             printf '%s\n' \
-                "# prompt.nvim shell integration (bash/zsh)." \
+                "# prompt.nvim $VERSION shell integration (bash/zsh)." \
                 "# Add to your shell rc:  eval \"\$(prompt-nvim --print-shell $_shell)\"" \
                 "# Each function launches the AI tool with prompt-nvim as its external editor."
             for _t in $SHELL_TARGETS; do
@@ -61,7 +61,7 @@ EOF
             ;;
         fish)
             printf '%s\n' \
-                "# prompt.nvim shell integration (fish)." \
+                "# prompt.nvim $VERSION shell integration (fish)." \
                 "# Add to your config:  prompt-nvim --print-shell fish | source" \
                 "# Each function launches the AI tool with prompt-nvim as its external editor."
             for _t in $SHELL_TARGETS; do
@@ -75,7 +75,7 @@ EOF
             ;;
         nu | nushell)
             printf '%s\n' \
-                "# prompt.nvim shell integration (nushell)." \
+                "# prompt.nvim $VERSION shell integration (nushell)." \
                 "# Add to your config, or:  prompt-nvim --print-shell nu | save -f ~/.config/nushell/prompt-nvim.nu" \
                 "# Shape targets nushell 0.90+; older/newer versions may need adjustment." \
                 "# Each command launches the AI tool with prompt-nvim as its external editor."
@@ -97,15 +97,70 @@ EOF
     esac
 }
 
+# Ask nvim what it knows about the plugin. Emits a single parseable line:
+#   PROMPT_CHECK <plugin-version|-> <resolved-target|nil>
+# Kept to one -c expression because the launcher is installed as a lone file
+# and cannot ship a companion Lua script.
+NVIM_PROBE='lua local ok,v=pcall(function() return require("prompt.version").version end)
+local t=nil
+local okm,m=pcall(require,"prompt.target")
+if okm then local okr,r=pcall(m.resolve,0) if okr then t=r end end
+io.stdout:write("PROMPT_CHECK "..(ok and v or "-").." "..tostring(t).."\n")'
+
+# `timeout` is coreutils and is absent on a stock macOS, so it is used only
+# when present: a bounded probe where possible, an unbounded one otherwise,
+# rather than failing outright on a missing tool.
+run_probe() {
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 30 "$nvim_cmd" --headless -c "$NVIM_PROBE" -c 'qa!' 2>/dev/null || true
+    else
+        "$nvim_cmd" --headless -c "$NVIM_PROBE" -c 'qa!' 2>/dev/null || true
+    fi
+}
+
 check() {
     _resolved=$(command -v "$nvim_cmd" 2>/dev/null || true)
-    if [ -n "$_resolved" ]; then
-        printf '%s\n' "prompt-nvim: nvim found: $_resolved"
-        printf '%s\n' "prompt-nvim: OK"
-        return 0
+    if [ -z "$_resolved" ]; then
+        printf '%s\n' "prompt-nvim: nvim not found: $nvim_cmd" >&2
+        return 1
     fi
-    printf '%s\n' "prompt-nvim: nvim not found: $nvim_cmd" >&2
-    return 1
+    printf '%s\n' "prompt-nvim: nvim found: $_resolved"
+    printf '%s\n' "prompt-nvim: launcher version $VERSION"
+
+    # Resolving nvim proves nothing about the plugin: the launcher reported OK
+    # on a machine where prompt.nvim was never installed. Drive nvim once and
+    # check the pieces that actually have to line up.
+    _probe=$(run_probe | sed -n 's/^PROMPT_CHECK //p' | head -n 1)
+    if [ -z "$_probe" ]; then
+        printf '%s\n' "prompt-nvim: could not query nvim (it did not start, or exited early)" >&2
+        return 1
+    fi
+
+    _plugin_version=${_probe%% *}
+    _target=${_probe#* }
+
+    if [ "$_plugin_version" = "-" ]; then
+        printf '%s\n' "prompt-nvim: prompt.nvim is not loadable in nvim - is the plugin installed?" >&2
+        return 1
+    fi
+    printf '%s\n' "prompt-nvim: plugin version $_plugin_version"
+
+    if [ "$_plugin_version" != "$VERSION" ]; then
+        printf '%s\n' "prompt-nvim: launcher $VERSION does not match plugin $_plugin_version." \
+            "prompt-nvim: re-run the plugin build/install step to refresh $0" >&2
+        return 1
+    fi
+
+    # Informational: the target normally arrives at runtime from the shell
+    # wrapper, so its absence here is expected and must not fail the check.
+    if [ "$_target" = "nil" ]; then
+        printf '%s\n' "prompt-nvim: no target resolves right now (set PROMPT_NVIM_TARGET, or default_target in setup())"
+    else
+        printf '%s\n' "prompt-nvim: target resolves to $_target"
+    fi
+
+    printf '%s\n' "prompt-nvim: OK"
+    return 0
 }
 
 while [ "$#" -gt 0 ]; do

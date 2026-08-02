@@ -63,6 +63,20 @@ function M.attach(bufnr, target, extra)
   end
 
   require("prompt.log").debug("attached buffer " .. bufnr .. " target=" .. tostring(target))
+
+  -- A prompt buffer with no resolvable target is inert, and silently so: every
+  -- trigger parse bails early (`prompt.trigger.parse` returns nil without a
+  -- target definition), so completion returns zero items forever while the
+  -- buffer, the blink/cmp source and `:checkhealth prompt` all still look
+  -- healthy. Warn instead, naming the ways to set one. Routed through
+  -- `prompt.log` so `log.level` can silence it.
+  if require("prompt.target").resolve(bufnr) == nil then
+    require("prompt.log").warn(
+      "no target for this buffer - completion will return nothing. "
+        .. "Set PROMPT_NVIM_TARGET (see `prompt-nvim --print-shell`), "
+        .. "`default_target` in setup(), or run :PromptTarget <name>."
+    )
+  end
 end
 
 function M.detach(bufnr)

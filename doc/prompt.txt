@@ -315,9 +315,18 @@ since these can change between tool versions.
     --no-bridge             Disable bridge behavior
     --print-shell <shell>   Print shell integration (bash|zsh|fish|nu|
                              nushell)
-    --check                 Validate the installation
+    --check                 Validate the installation (see below)
     --help, -h              Show this help
     --version               Show version
+<
+`--check` drives Neovim once and reports whether the pieces line up: nvim is
+resolvable, `prompt.nvim` loads, the launcher and plugin versions match, and
+which target currently resolves. It exits non-zero on a missing nvim, a plugin
+that will not load, or a version mismatch. A target that does not resolve is
+reported but is NOT a failure — the target normally arrives from the shell
+wrapper at edit time, not at check time. >
+
+    prompt-nvim --check
 <
 `--print-shell` prints a snippet for the named shell (`bash`, `zsh`, `fish`,
 `nu`/`nushell`); each defines wrapper functions that launch the AI tools with

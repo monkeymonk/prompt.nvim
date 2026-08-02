@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2026-08-02
+
+### Fixed
+
+- A prompt buffer with no resolvable target is no longer silently inert.
+  Previously it attached, reported `is_attached`, and kept the blink/cmp source
+  enabled, but every trigger parse bailed — so completion returned nothing
+  forever while the buffer and `:checkhealth prompt` both looked healthy.
+  `attach()` now warns and names the ways to set a target. Routed through
+  `prompt.log`, so `log.level` silences it.
+
+### Added
+
+- `:checkhealth prompt` reports which source supplies the target
+  (`PROMPT_NVIM_TARGET`, `default_target`) or warns when nothing does — the
+  condition above was previously invisible to it.
+- `--check` validates the installation instead of only resolving `nvim`: it
+  confirms the plugin loads, compares launcher and plugin versions, and reports
+  the resolved target. Exits non-zero on a missing nvim, an unloadable plugin,
+  or a version mismatch; an unresolved target is informational.
+- The launcher version is stamped into the printed shell snippet, so a copy
+  saved to a file (as the nushell instructions suggest) can be told apart from
+  the running launcher.
+- The launcher/plugin version-mismatch warning now names the launcher file in
+  use, so a stale copy left on `PATH` by an earlier install is identifiable.
+
+### Tests
+
+- `tests/unit/buffer.lua` — the no-target warning fires when nothing resolves,
+  stays quiet for an explicit target, `PROMPT_NVIM_TARGET` and
+  `default_target`, and honours `log.level`.
+- `tests/unit/launcher_parity.lua` — the launcher's `SHELL_TARGETS` must match
+  `register_builtins` in `lua/prompt/init.lua`. The launcher has to run
+  standalone and fast enough for a shell rc, so it cannot query the registry
+  and must keep its own list; this makes that duplication fail loudly instead
+  of silently leaving a new target without a shell wrapper.
+- `tests/integration/check_spec.sh` — `--check` on a healthy install, a missing
+  plugin, a version mismatch, a missing nvim, and target reporting.
+
 ## [0.2.4] - 2026-08-01
 
 ### Fixed
