@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-08-01
+
+### Fixed
+
+- `--print-shell` now works from an installed launcher. It read its snippets
+  from a `shell/` directory resolved relative to the script, which only exists
+  when running from a checkout — every documented install copies
+  `bin/prompt-nvim` onto `PATH` on its own, so `eval "$(prompt-nvim
+  --print-shell zsh)"` failed with "shell integration file not found" and the
+  shell wrappers were never defined. The launcher now generates the snippets
+  itself and is self-contained.
+
+### Changed
+
+- The `shell/` snippet files are removed; `--print-shell` is the single source
+  of truth for the wrappers. Its output is unchanged apart from the header
+  comment, which now points at `--print-shell` instead of sourcing the file.
+
+### Internal
+
+- Restore a green CI: apply `stylua` to the connector modules and
+  `tests/unit/connectors.lua`, and drop a redundant `require` in
+  `tests/unit/cache.lua` that shadowed the module-level upvalue. Formatting and
+  lint only — no behavior change. Both jobs had been failing since 0.2.3.
+
+### Tests
+
+- Add `tests/integration/print_shell_spec.sh`: every shell emits a wrapper and
+  a `PROMPT_NVIM_TARGET` assignment for all five targets, a launcher copied
+  outside the repo produces byte-identical output (the regression), the emitted
+  bash/zsh snippet parses under `sh -n`, and an unknown shell exits 2.
+
 ## [0.2.3] - 2026-08-01
 
 ### Performance

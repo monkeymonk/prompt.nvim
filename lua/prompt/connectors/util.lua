@@ -133,14 +133,24 @@ function M.scan_async(specs, callback)
   local function emit(name, ty)
     local spec = scan_spec
     if spec.scanner == "skills" then
-      if ty ~= "directory" then return end
+      if ty ~= "directory" then
+        return
+      end
       local path = spec.path .. "/" .. name .. "/SKILL.md"
-      if not vim.uv.fs_stat(path) then return end
+      if not vim.uv.fs_stat(path) then
+        return
+      end
       local fm = require("prompt.frontmatter").parse(path)
       local label = fm.name or name
       out[#out + 1] = {
-        label = label, insert_text = label, kind = "skill", source = spec.source_name,
-        scope = spec.scope, detail = "skill · " .. spec.scope, documentation = fm.description, path = path,
+        label = label,
+        insert_text = label,
+        kind = "skill",
+        source = spec.source_name,
+        scope = spec.scope,
+        detail = "skill · " .. spec.scope,
+        documentation = fm.description,
+        path = path,
       }
     elseif ty == "file" then
       local kind = spec.scanner == "md_commands" and "command"
@@ -161,27 +171,42 @@ function M.scan_async(specs, callback)
           end
         end
         out[#out + 1] = {
-          label = name:gsub("%.toml$", ""):gsub("/", ":"), insert_text = name:gsub("%.toml$", ""):gsub("/", ":"),
-          kind = "command", source = spec.source_name, scope = spec.scope,
-          detail = "command · " .. spec.scope, documentation = documentation, path = path,
+          label = name:gsub("%.toml$", ""):gsub("/", ":"),
+          insert_text = name:gsub("%.toml$", ""):gsub("/", ":"),
+          kind = "command",
+          source = spec.source_name,
+          scope = spec.scope,
+          detail = "command · " .. spec.scope,
+          documentation = documentation,
+          path = path,
         }
       elseif kind and name:match("%.md$") then
         local path = spec.path .. "/" .. name
         local fm = require("prompt.frontmatter").parse(path)
         local label = name:gsub("%.md$", "")
         out[#out + 1] = {
-          label = label, insert_text = label, kind = kind, source = spec.source_name,
-          scope = spec.scope, detail = kind .. " · " .. spec.scope, documentation = fm.description, path = path,
+          label = label,
+          insert_text = label,
+          kind = kind,
+          source = spec.source_name,
+          scope = spec.scope,
+          detail = kind .. " · " .. spec.scope,
+          documentation = fm.description,
+          path = path,
         }
       end
     end
   end
 
   local function step()
-    if cancelled or finished then return end
+    if cancelled or finished then
+      return
+    end
     if iterator == nil then
       scan_spec = specs[spec_index]
-      if not scan_spec then return finish() end
+      if not scan_spec then
+        return finish()
+      end
       spec_index = spec_index + 1
       if not M.is_dir(scan_spec.path) then
         return vim.schedule(step)

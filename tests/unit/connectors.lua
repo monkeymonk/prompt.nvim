@@ -24,9 +24,14 @@ function M.test_discovery_does_not_require_executable()
     calls = calls + 1
     result = items
   end)
-  wait_for(function() return result ~= nil end)
+  wait_for(function()
+    return result ~= nil
+  end)
   assert(calls == 1, "connector callback must run once")
-  assert(#result == 1 and result[1].label == "review", "configured connector files must be discoverable")
+  assert(
+    #result == 1 and result[1].label == "review",
+    "configured connector files must be discoverable"
+  )
 end
 
 function M.test_cache_keys_include_kind_root_and_opencode_config()
@@ -43,8 +48,12 @@ function M.test_cache_keys_include_kind_root_and_opencode_config()
   local function discover(env_dir)
     vim.env.OPENCODE_CONFIG_DIR = env_dir
     local result
-    connector.discover("commands", { root = project }, function(items) result = items end)
-    wait_for(function() return result ~= nil end)
+    connector.discover("commands", { root = project }, function(items)
+      result = items
+    end)
+    wait_for(function()
+      return result ~= nil
+    end)
     return result
   end
 
@@ -54,8 +63,12 @@ function M.test_cache_keys_include_kind_root_and_opencode_config()
   assert(#b == 2 and b[2].label == "b", "changed config root must not reuse stale cache")
 
   local skills
-  connector.discover("skills", { root = project }, function(items) skills = items end)
-  wait_for(function() return skills ~= nil end)
+  connector.discover("skills", { root = project }, function(items)
+    skills = items
+  end)
+  wait_for(function()
+    return skills ~= nil
+  end)
   assert(#skills == 0, "kind must have an independent cache entry")
 end
 
@@ -67,23 +80,32 @@ function M.test_cancelled_discovery_does_not_cache_or_callback()
     write(root .. "/.claude/commands/item" .. i .. ".md", { "item" })
   end
   local called = false
-  local cancel = require("prompt.connectors").get("claude").discover("commands", { root = root }, function()
-    called = true
-  end)
+  local cancel = require("prompt.connectors")
+    .get("claude")
+    .discover("commands", { root = root }, function()
+      called = true
+    end)
   cancel()
-  vim.wait(100, function() return false end, 10)
+  vim.wait(100, function()
+    return false
+  end, 10)
   assert(not called, "cancelled discovery must not invoke its callback")
   local called_again = false
   require("prompt.connectors").get("claude").discover("commands", { root = root }, function(items)
     called_again = #items > 0
   end)
-  wait_for(function() return called_again end)
+  wait_for(function()
+    return called_again
+  end)
 end
 
 function M.test_normalization_preserves_nested_metadata_and_source_ownership()
   local item = {
-    label = "nested", kind = "command", source_path = "/tmp/nested.md",
-    documentation = { kind = "markdown", value = "text" }, metadata = { provider = "test" },
+    label = "nested",
+    kind = "command",
+    source_path = "/tmp/nested.md",
+    documentation = { kind = "markdown", value = "text" },
+    metadata = { provider = "test" },
   }
   local normalized = require("prompt.connectors.util").normalize_items({ item })[1]
   assert(item.path == nil, "normalization must not mutate connector-owned input")

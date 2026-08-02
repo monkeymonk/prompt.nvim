@@ -19,7 +19,6 @@ function M.test_set_get_invalidate_clear()
 end
 
 function M.test_prefix_invalidation_is_scoped()
-  local cache = require("prompt.cache")
   cache.clear()
   cache.set("conn:claude:skills", { "connector" })
   cache.set("fs:/project", { "filesystem" })

@@ -4,14 +4,17 @@
 
 set -eu
 
-VERSION="0.2.3"
+VERSION="0.2.4"
 
 target="${PROMPT_NVIM_TARGET:-}"
 bridge="${PROMPT_NVIM_BRIDGE:-1}"
 nvim_cmd="${PROMPT_NVIM_EXECUTABLE:-nvim}"
 server="${PROMPT_NVIM_SERVER:-}"
 
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+# Targets that get a shell wrapper, in printed order. A wrapper only selects
+# PROMPT_NVIM_TARGET, so this mirrors the plugin's built-in targets and needs
+# no other coordination with the Lua side.
+SHELL_TARGETS="claude codex gemini opencode pi"
 
 usage() {
     cat <<'EOF'
@@ -32,24 +35,66 @@ Options:
 EOF
 }
 
+# The snippets are generated here rather than read from a `shell/` directory
+# beside the script. Every documented install copies this single file onto
+# PATH, where no such directory exists, so a repo-relative lookup only ever
+# worked when running straight from a checkout.
 print_shell() {
     _shell="$1"
     case "$_shell" in
-        zsh) _file="zsh.sh" ;;
-        bash) _file="bash.sh" ;;
-        fish) _file="fish.fish" ;;
-        nu | nushell) _file="nushell.nu" ;;
+        bash | zsh)
+            printf '%s\n' \
+                "# prompt.nvim shell integration (bash/zsh)." \
+                "# Add to your shell rc:  eval \"\$(prompt-nvim --print-shell $_shell)\"" \
+                "# Each function launches the AI tool with prompt-nvim as its external editor."
+            for _t in $SHELL_TARGETS; do
+                cat <<EOF
+
+$_t() {
+  PROMPT_NVIM_TARGET=$_t \\
+  VISUAL=prompt-nvim \\
+  EDITOR=prompt-nvim \\
+  command $_t "\$@"
+}
+EOF
+            done
+            ;;
+        fish)
+            printf '%s\n' \
+                "# prompt.nvim shell integration (fish)." \
+                "# Add to your config:  prompt-nvim --print-shell fish | source" \
+                "# Each function launches the AI tool with prompt-nvim as its external editor."
+            for _t in $SHELL_TARGETS; do
+                cat <<EOF
+
+function $_t
+    env PROMPT_NVIM_TARGET=$_t VISUAL=prompt-nvim EDITOR=prompt-nvim command $_t \$argv
+end
+EOF
+            done
+            ;;
+        nu | nushell)
+            printf '%s\n' \
+                "# prompt.nvim shell integration (nushell)." \
+                "# Add to your config, or:  prompt-nvim --print-shell nu | save -f ~/.config/nushell/prompt-nvim.nu" \
+                "# Shape targets nushell 0.90+; older/newer versions may need adjustment." \
+                "# Each command launches the AI tool with prompt-nvim as its external editor."
+            for _t in $SHELL_TARGETS; do
+                cat <<EOF
+
+def --wrapped $_t [...args] {
+    with-env {PROMPT_NVIM_TARGET: $_t, VISUAL: prompt-nvim, EDITOR: prompt-nvim} {
+        ^$_t ...\$args
+    }
+}
+EOF
+            done
+            ;;
         *)
             printf '%s\n' "prompt-nvim: unknown shell: $_shell" >&2
             exit 2
             ;;
     esac
-    _path="$script_dir/../shell/$_file"
-    if [ ! -f "$_path" ]; then
-        printf '%s\n' "prompt-nvim: shell integration file not found: $_path" >&2
-        exit 1
-    fi
-    cat "$_path"
 }
 
 check() {

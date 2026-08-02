@@ -319,9 +319,14 @@ since these can change between tool versions.
     --help, -h              Show this help
     --version               Show version
 <
-`--print-shell` prints one of the snippets in `shell/` (`bash.sh`,
-`zsh.sh`, `fish.fish`, `nushell.nu`); each defines wrapper functions that
-launch the AI tools with `prompt-nvim` set as their external editor.
+`--print-shell` prints a snippet for the named shell (`bash`, `zsh`, `fish`,
+`nu`/`nushell`); each defines wrapper functions that launch the AI tools with
+`prompt-nvim` set as their external editor. The launcher generates the snippet
+itself, so it works wherever the script is installed: >
+
+    eval "$(prompt-nvim --print-shell zsh)"    # bash / zsh
+    prompt-nvim --print-shell fish | source    # fish
+<
 
 The wrapper functions are a convenience. The minimal way to use prompt.nvim
 with any tool is to set the environment variables inline for one run: >
