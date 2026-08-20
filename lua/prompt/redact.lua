@@ -92,8 +92,7 @@ local function redact_assignments(line)
 
     local before = low:sub(hit_start - 1, hit_start - 1)
     local after = low:sub(hit_end + 1, hit_end + 1)
-    local sep_s, sep_e, quote =
-      low:find("^[_%-]?[%w_%-]*%s*[:=]%s*(['\"]?)", hit_end + 1)
+    local sep_s, sep_e, quote = low:find("^[_%-]?[%w_%-]*%s*[:=]%s*(['\"]?)", hit_end + 1)
 
     if not is_boundary(before) or after:match("%l") or not sep_s then
       table.insert(out, line:sub(pos, hit_start))

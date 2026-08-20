@@ -29,7 +29,8 @@ function M.test_github_token()
 end
 
 function M.test_jwt()
-  local jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+  local jwt =
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
   local out, count = scan_one("Authorization header: " .. jwt)
   assert(count == 1, "expected 1 match, got " .. count)
   assert(out:find(jwt, 1, true) == nil, "JWT must be masked: " .. out)
@@ -106,7 +107,7 @@ end
 
 function M.test_apply_covers_the_whole_buffer_by_default()
   local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "before", "password: \"hunter2\"", "after" })
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "before", 'password: "hunter2"', "after" })
 
   local count = redact.apply(buf)
   assert(count == 1, "expected 1 match, got " .. count)
