@@ -32,6 +32,7 @@ M.defaults = {
   },
   cache = { enabled = true, ttl_ms = 30000 },
   highlight = { enabled = true },
+  redact = { enabled = false, notify = true },
   log = { level = "warn" },
   targets = {},
 }

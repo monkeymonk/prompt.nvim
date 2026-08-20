@@ -4,7 +4,7 @@
 
 set -eu
 
-VERSION="0.2.5"
+VERSION="0.3.0"
 
 target="${PROMPT_NVIM_TARGET:-}"
 bridge="${PROMPT_NVIM_BRIDGE:-1}"

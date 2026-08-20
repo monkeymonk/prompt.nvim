@@ -54,6 +54,38 @@ function M.setup_autocmds()
   })
 end
 
+-- Redact obvious secrets out of a session buffer right before its content
+-- leaves Neovim. Fires on every write to a session buffer: `write_buffer()`
+-- (the `<C-CR>`/`:PromptReturn` path, where the session is already in state
+-- "returning" by the time this runs) and a plain `:w`/`:wq`/`ZZ` (where it's
+-- still "attached"). Restoring from backup on cancel is a raw byte copy, not
+-- a buffer write, so it never reaches this autocmd. Off by default
+-- (`redact.enabled`); `:PromptRedactToggle` flips it for one buffer.
+function M.setup_redact()
+  local group = vim.api.nvim_create_augroup("PromptRedact", { clear = true })
+  vim.api.nvim_create_autocmd("BufWritePre", {
+    group = group,
+    callback = function(args)
+      if not require("prompt.session").get(args.buf) then
+        return
+      end
+      local cfg = require("prompt.config").get().redact
+      local toggled = vim.b[args.buf].prompt_redact_toggled
+      local enabled = toggled
+      if enabled == nil then
+        enabled = cfg.enabled
+      end
+      if not enabled then
+        return
+      end
+      local count = require("prompt.redact").apply(args.buf)
+      if count > 0 and cfg.notify then
+        require("prompt.log").warn(count .. " secret(s) redacted before returning this prompt")
+      end
+    end,
+  })
+end
+
 -- Existing-server (--server) sessions: the launcher registers metadata via
 -- `--remote-expr` (see `prompt.remote`) before it blocks on `--remote-wait`.
 -- When that file's buffer is opened here, attach the session for it. Cheap
@@ -139,6 +171,7 @@ function M.setup(opts)
   M.setup_remote()
   M.setup_lifecycle()
   M.setup_autocmds()
+  M.setup_redact()
   require("prompt.highlight").setup_hl()
 
   M._setup_done = true

@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-20
+
+### Added
+
+- Optional secret redaction (`redact.enabled`, off by default). Masks
+  well-known API key/token shapes, PEM private key blocks, and secret-ish
+  `key = value` assignments out of a prompt buffer on every write —
+  `<C-CR>`/`:PromptReturn` and a plain `:w`/`:wq`/`ZZ` alike.
+  `:PromptRedactToggle` flips it for one buffer; `:PromptRedact` (bare =
+  whole buffer, range = selection) runs the same scan on demand, in any
+  buffer, on its own or as a building block for other commands via
+  `require("prompt.redact")`.
+
 ## [0.2.5] - 2026-08-02
 
 ### Fixed

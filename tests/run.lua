@@ -11,6 +11,7 @@ local module_names = {
   "connectors",
   "candidate",
   "frontmatter",
+  "redact",
   "registry",
   "pathspec",
   "shell",

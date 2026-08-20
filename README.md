@@ -295,6 +295,11 @@ require("prompt").setup({
 
   highlight = { enabled = true },  -- color @/... references in the buffer
 
+  redact = {
+    enabled = false,               -- mask obvious secrets before every write
+    notify = true,                 -- log how many were masked (prompt.log)
+  },
+
   log = { level = "warn" },        -- trace|debug|info|warn|error|off
 
   targets = {},                    -- per-target trigger/source overrides
@@ -314,7 +319,7 @@ targets = {
 ## Commands
 
 | Command                   | Does                                            |
-| ------------------------- | ----------------------------------------------- |
+| ------------------------- | ------------------------------------------------ |
 | `:PromptNew [target]`     | New Markdown prompt buffer for a target.        |
 | `:PromptAttach [target]`  | Attach the current buffer.                      |
 | `:PromptDetach`           | Detach the current buffer.                      |
@@ -323,6 +328,8 @@ targets = {
 | `:PromptRefresh`          | Clear discovery/path caches.                    |
 | `:PromptReturn`           | Save and return to the AI tool.                 |
 | `:PromptCancel`           | Restore the original prompt and return.         |
+| `:PromptRedactToggle`     | Toggle automatic redaction for this buffer.     |
+| `:PromptRedact`           | Redact now: bare = whole buffer, range = selection. |
 | `:PromptInfo`             | Session info: id, target, cwd, root, mode, backend, versions (no prompt content). |
 | `:PromptHealth`           | Run health checks.                              |
 
@@ -345,6 +352,29 @@ vim.api.nvim_set_hl(0, "PromptReferenceCommand",   { fg = "#bb9af7", bold = true
 vim.api.nvim_set_hl(0, "PromptReferenceSkill",     { fg = "#9ece6a", bold = true })
 vim.api.nvim_set_hl(0, "PromptReferenceAgent",     { fg = "#e0af68", bold = true })
 ```
+
+## Redacting secrets
+
+Off by default. Enable it (`redact.enabled = true`) to mask obvious secrets —
+AWS/GitHub/Slack/Stripe/Google keys, `sk-...` keys, JWTs, PEM private key
+blocks, and `key = value` / `key: value` assignments whose key name looks
+secret-ish (`password`, `api_key`, `client_secret`, ...) — right before a
+prompt buffer is written back to its AI tool, whether that's `<C-CR>`,
+`:PromptReturn`, or a plain `:w`/`:wq`/`ZZ`.
+
+It's pattern matching, not a security boundary: it only catches shapes it
+recognizes, and redacts in the visible buffer rather than in flight, so a
+masked value is always there to review (or undo) before you save again.
+`:PromptRedactToggle` flips automatic redaction for the current buffer when a
+specific prompt needs a real secret through, or needs tighter masking than
+the default is giving it.
+
+`:PromptRedact` runs the same scan on demand, in any buffer, session or not —
+bare `:PromptRedact` covers the whole buffer, `:'<,'>PromptRedact` from
+visual mode covers just the selection. Useful for sanitizing a snippet
+before pasting it into another AI tool's chat, or for building your own
+redact-then-send command with `require("prompt.redact")` directly
+(`scan(lines)`, `apply(bufnr)`, `apply_range(bufnr, start_line, end_line)`).
 
 ## Health
 

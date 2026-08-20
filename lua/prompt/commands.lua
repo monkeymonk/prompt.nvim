@@ -171,6 +171,36 @@ function M.create()
     require("prompt.root").clear()
     vim.notify("[prompt] caches cleared", vim.log.levels.INFO)
   end, { nargs = 0, desc = "Prompt: clear caches", force = true })
+
+  vim.api.nvim_create_user_command("PromptRedactToggle", function()
+    local cfg = require("prompt.config").get().redact
+    local toggled = vim.b.prompt_redact_toggled
+    local enabled = toggled
+    if enabled == nil then
+      enabled = cfg.enabled
+    end
+    vim.b.prompt_redact_toggled = not enabled
+    vim.notify(
+      "[prompt] redact " .. (not enabled and "enabled" or "disabled") .. " for this buffer",
+      vim.log.levels.INFO
+    )
+  end, { nargs = 0, desc = "Prompt: toggle secret redaction for this buffer", force = true })
+
+  -- Manual, on-demand redaction — works on any buffer, not just an attached
+  -- prompt session. Bare `:PromptRedact` covers the whole buffer;
+  -- `:'<,'>PromptRedact` from visual mode covers just the selection, e.g. to
+  -- sanitize a snippet before pasting it into another AI tool's chat.
+  vim.api.nvim_create_user_command("PromptRedact", function(opts)
+    local count = require("prompt.redact").apply_range(0, opts.line1, opts.line2)
+    vim.notify(
+      "[prompt] " .. (count > 0 and (count .. " secret(s) redacted") or "no secrets found"),
+      vim.log.levels.INFO
+    )
+  end, {
+    range = "%",
+    desc = "Prompt: redact secrets (bare = whole buffer, range = selection)",
+    force = true,
+  })
 end
 
 return M
