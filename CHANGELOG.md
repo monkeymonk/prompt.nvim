@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-10-14
+
+### Changed
+
+- Consolidated `docs/` into `README.md` and `CONTRIBUTING.md`; markdown now
+  lives only at the repository root (`doc/prompt.txt`, the Neovim vimdoc
+  file, is a different format/mechanism and is unaffected). Removed
+  `docs/OPTIMIZATION_REPORT.md` outright — an orphaned, fully-implemented
+  planning doc with no references anywhere. Folded `docs/COMPATIBILITY.md`
+  into README's Compatibility section (it duplicated the stable/experimental
+  list already there and in ARCHITECTURE.md, and was itself unlinked) and
+  `docs/RELEASE_CHECKLIST.md` into a new "Release Process" section in
+  CONTRIBUTING.md.
+
 ## [0.4.0] - 2026-10-14
 
 ### Added
