@@ -12,6 +12,7 @@ prompt.nvim, and tested version ranges.
 | Gemini CLI | Experimental | — | — | Version-tentative |
 | OpenCode | Experimental | — | — | Version-tentative |
 | Pi | Experimental | — | — | Version-tentative |
+| OMP | Experimental | — | — | Version-tentative |
 
 **Stable** connectors are actively maintained and verified against documented
 version ranges.
@@ -89,6 +90,18 @@ which pi
 
 Pi connector is experimental; discovery layout may change.
 
+### OMP
+
+```sh
+# Verify available
+which omp
+
+# Config directory
+<root>/.omp or ~/.omp/agent
+```
+
+OMP connector is experimental; discovery layout may change.
+
 ## Health Checks
 
 Run `:checkhealth prompt` to see:
@@ -114,6 +127,7 @@ Connectors:
   gemini       experimental (not found)
   opencode     experimental (executable found, version unknown)
   pi           experimental (not found)
+  omp          experimental (not found)
 ```
 
 ## Troubleshooting

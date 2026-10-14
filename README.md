@@ -8,7 +8,7 @@ get fast, target-aware completion for files, commands, skills, agents, and shell
 Save, and it's back in the tool. No chat window. No new dialect. Just your editor,
 doing what it does best.
 
-Works with **Claude Code, Codex CLI, Gemini CLI, OpenCode, and Pi**.
+Works with **Claude Code, Codex CLI, Gemini CLI, OpenCode, Pi, and OMP**.
 
 <p align="center">
   <img src="assets/demo.gif" alt="prompt.nvim demo: @ file, / command, and ! shell completion in a Neovim prompt buffer" width="100%">
@@ -129,7 +129,7 @@ PROMPT_NVIM_TARGET=codex VISUAL=prompt-nvim EDITOR=prompt-nvim codex
 
 1. Start your AI tool (via the wrapper, or the inline command above).
 2. Begin a prompt, then invoke the tool's external-editor action:
-   - **Claude / Codex / Pi** — `Ctrl-G`
+   - **Claude / Codex / Pi / OMP** — `Ctrl-G`
    - **OpenCode** — `/editor`, or `Ctrl-X` then `E`
    - **Gemini** — check its keyboard-shortcut help for your version
 3. Edit in Neovim with completion. `:wq` (or `:PromptReturn`) returns the prompt;
@@ -202,9 +202,10 @@ require("cmp").setup({
 | Gemini CLI  | `@` files/dirs · `/` cmds+skills+agents       | `~/.gemini/{commands,skills,agents}` (TOML)     |
 | OpenCode    | `@` files/dirs/agents · `/` cmds              | `$OPENCODE_CONFIG_DIR` or `~/.config/opencode`  |
 | Pi          | `@` files/dirs · `/` cmds+skills+prompts      | `~/.config/pi` or `~/.pi`                       |
+| OMP         | `@` files/dirs · `/` cmds+skills+prompts      | `<root>/.omp` and `~/.omp/agent`                |
 
 Codex CLI shares Claude Code's `@`/`/`/`!` bindings; both are **stable**
-connectors. The Gemini, OpenCode, and Pi connectors track each tool's
+connectors. The Gemini, OpenCode, Pi, and OMP connectors track each tool's
 documented layout but are **experimental** — verify against your installed
 version (see Compatibility below and `:checkhealth prompt`).
 
@@ -222,6 +223,7 @@ reports executable availability separately.
 - Gemini CLI
 - OpenCode
 - Pi
+- OMP
 
 File discovery follows this backend order: `fd` → `rg` → `git` → Lua walk.
 Each backend includes tracked and untracked files, excluding ignored entries and

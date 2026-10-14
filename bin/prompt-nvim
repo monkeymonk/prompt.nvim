@@ -4,7 +4,7 @@
 
 set -eu
 
-VERSION="0.3.0"
+VERSION="0.4.0"
 
 target="${PROMPT_NVIM_TARGET:-}"
 bridge="${PROMPT_NVIM_BRIDGE:-1}"
@@ -14,7 +14,7 @@ server="${PROMPT_NVIM_SERVER:-}"
 # Targets that get a shell wrapper, in printed order. A wrapper only selects
 # PROMPT_NVIM_TARGET, so this mirrors the plugin's built-in targets and needs
 # no other coordination with the Lua side.
-SHELL_TARGETS="claude codex gemini opencode pi"
+SHELL_TARGETS="claude codex gemini opencode pi omp"
 
 usage() {
     cat <<'EOF'

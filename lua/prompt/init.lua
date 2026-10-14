@@ -4,7 +4,7 @@ M._setup_done = false
 M.api_version = 1
 
 local function register_builtins()
-  for _, name in ipairs({ "claude", "codex", "gemini", "opencode", "pi" }) do
+  for _, name in ipairs({ "claude", "codex", "gemini", "opencode", "pi", "omp" }) do
     require("prompt.registry").register_target(
       name,
       require("prompt.targets." .. name),

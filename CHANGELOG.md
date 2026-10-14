@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-14
+
+### Added
+
+- OMP target and connector (`omp`). OMP's `Ctrl-G` external-editor action
+  (`app.editor.external`) now attaches to a buffer using OMP's own composer
+  syntax: `@` files/directories, `/` commands/skills/prompts sourced from
+  `<root>/.omp/{commands,skills,prompts}` and
+  `~/.omp/agent/{commands,skills,prompts}`. Added to `SHELL_TARGETS` in
+  `bin/prompt-nvim`, so `eval "$(prompt-nvim --print-shell zsh)"` also
+  generates an `omp` wrapper. Experimental, like the other non-Claude/Codex
+  connectors.
+
 ## [0.3.0] - 2026-08-20
 
 ### Added

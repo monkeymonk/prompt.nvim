@@ -23,7 +23,7 @@ CONTENTS                                                     *prompt-contents*
 1. Introduction                                                *prompt-intro*
 
 prompt.nvim opens the current prompt from a terminal AI coding tool (Claude
-Code, Codex CLI, Gemini CLI, OpenCode, Pi) in a Neovim Markdown buffer,
+Code, Codex CLI, Gemini CLI, OpenCode, Pi, OMP) in a Neovim Markdown buffer,
 acting as the tool's external editor ($VISUAL/$EDITOR). It adds:
 
 - Trigger-based completion for files, directories, commands, skills and
@@ -47,7 +47,7 @@ Call `setup()` once, typically from your plugin manager's `config` or
 `opts` handling. `setup()`:
 
 - Merges your options over the defaults (see |prompt-config|).
-- Registers the five builtin targets, sources and connectors.
+- Registers the six builtin targets, sources and connectors.
 - Applies any `config.targets` overrides.
 - Creates the `:Prompt*` user commands (see |prompt-commands|).
 - Wires the bridge `VimEnter` autocommand and the cache-invalidation
@@ -260,6 +260,13 @@ pi ~
     `@` (any position) -> files, directories.
     Discovers `~/.config/pi` or `~/.pi`, and `<root>/.pi`.
 
+omp ~
+    Display name: "OMP".
+    `@` (any position) -> files, directories.
+    `/` (line-start only) -> omp_commands, omp_skills, omp_prompts.
+    Discovers `<root>/.omp/{commands,skills,prompts}` and
+    `~/.omp/agent/{commands,skills,prompts}`.
+
 ==============================================================================
 7. Bridge                                                      *prompt-bridge*
 
@@ -295,7 +302,7 @@ return/quit behavior. The restore behavior is controlled by
 `"delete"`       Clear the buffer, then return.
 `"error-exit"`   `:cquit` instead of returning normally.
 
-External-editor trigger keys, per tool: Codex CLI and Pi use Ctrl-G;
+External-editor trigger keys, per tool: Codex CLI, Pi, and OMP use Ctrl-G;
 OpenCode uses `/editor` or Ctrl-X E; for Claude Code and Gemini CLI,
 consult that tool's own current documentation for its external-editor key,
 since these can change between tool versions.

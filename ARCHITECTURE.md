@@ -137,6 +137,7 @@ agents, prompts) by scanning the tool's project and user config directories.
 - Gemini CLI
 - OpenCode
 - Pi
+- OMP
 
 Experimental connectors include version probing; users can file issues if a
 new tool version breaks discovery.

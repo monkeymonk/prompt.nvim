@@ -77,6 +77,7 @@ function M.register_builtins()
   M.register("gemini", require("prompt.connectors.gemini"), { override = true })
   M.register("opencode", require("prompt.connectors.opencode"), { override = true })
   M.register("pi", require("prompt.connectors.pi"), { override = true })
+  M.register("omp", require("prompt.connectors.omp"), { override = true })
 end
 
 return M

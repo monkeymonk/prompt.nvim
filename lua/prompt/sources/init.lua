@@ -69,6 +69,10 @@ function M.register_builtins()
   reg("pi_commands", make("pi", "commands"))
   reg("pi_skills", make("pi", "skills"))
   reg("pi_prompts", make("pi", "prompts"))
+
+  reg("omp_commands", make("omp", "commands"))
+  reg("omp_skills", make("omp", "skills"))
+  reg("omp_prompts", make("omp", "prompts"))
 end
 
 return M

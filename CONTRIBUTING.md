@@ -107,7 +107,7 @@ Examples:
 
 - Claude Code: 2025-01+ (active maintenance; documented version range).
 - Codex: latest release (maintained in parallel; tested against recent version).
-- Gemini, OpenCode, Pi: experimental until a maintainer volunteers; version
+- Gemini, OpenCode, Pi, OMP: experimental until a maintainer volunteers; version
   probing remains in place to help users identify compatibility issues.
 
 ## Git Workflow

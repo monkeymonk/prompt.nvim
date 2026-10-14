@@ -16,7 +16,7 @@ launcher="$root_dir/bin/prompt-nvim"
 
 # Every target the wrappers are expected to cover, mirroring SHELL_TARGETS in
 # the launcher. Hard-coded rather than sourced so a typo there fails the test.
-targets="claude codex gemini opencode pi"
+targets="claude codex gemini opencode pi omp"
 
 pass_count=0
 fail_count=0
