@@ -216,8 +216,8 @@ reports executable availability separately.
 ## Compatibility
 
 **Stable connectors** (tested and actively maintained):
-- Claude Code
-- Codex CLI
+- Claude Code — 2025-01+ (active maintenance, documented version range)
+- Codex CLI — latest release (maintained in parallel, tested against recent version)
 
 **Experimental connectors** (version-tentative; reported in `:checkhealth prompt`):
 - Gemini CLI
@@ -230,6 +230,53 @@ Each backend includes tracked and untracked files, excluding ignored entries and
 `ignore` config patterns. The pure-Lua fallback does NOT honor `.gitignore`; use
 `fd`, `rg`, or `git` when `.gitignore` respect is required. Run `:checkhealth
 prompt` for backend availability and tested version ranges per connector.
+
+### Installation & verification
+
+```sh
+which claude && claude --version      # Claude Code; shares .claude with Codex CLI
+which codex && codex --version        # Codex CLI; shares Claude Code's @/\//! bindings
+which gemini && gemini --version      # Gemini CLI; may not support --version
+which opencode                        # OpenCode; reads $OPENCODE_CONFIG_DIR or ~/.config/opencode
+which pi                              # Pi; reads ~/.config/pi or ~/.pi
+which omp                             # OMP; reads <root>/.omp or ~/.omp/agent
+nvim -c ':checkhealth prompt'
+```
+
+Sample `:checkhealth prompt` output:
+
+```
+prompt.nvim
+============
+
+Backend: nvim 0.11.0 on Linux
+Launcher: prompt-nvim 0.4.0 (OK)
+Plugin: 0.4.0 (OK)
+
+Connectors:
+  claude       stable    2025-01 (executable found, version probed)
+  codex        stable    1.2.0 (executable found, version older than tested range)
+  gemini       experimental (not found)
+  opencode     experimental (executable found, version unknown)
+  pi           experimental (not found)
+  omp          experimental (not found)
+```
+
+### Troubleshooting
+
+**Tool not found** — confirm the executable is on `PATH`: `which <tool>`,
+`echo $PATH`.
+
+**Version mismatch warning** (`:checkhealth prompt` reports "older" or
+"newer" than tested) — older: a known issue may already be fixed upstream,
+consider upgrading; newer: discovery layout may differ, file an issue with
+`:PromptInfo` output if completion doesn't work.
+
+**No completions for a tool**:
+1. Run `:checkhealth prompt` to verify the tool is found.
+2. Ensure discovery directories exist (e.g. `~/.claude/commands/`).
+3. Check `:PromptInfo` to see which sources are active.
+4. Set `log.level = "debug"` in `setup()` and review completion logs.
 
 ## Server mode
 
